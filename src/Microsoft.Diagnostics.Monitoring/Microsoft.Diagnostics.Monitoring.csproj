@@ -37,5 +37,6 @@
 
   <ItemGroup>
     <None Include="..\Tools\dotnet-gcdump\DotNetHeapDump\README.md" Link="DotNetHeapDump\README.md" />
+    <InternalsVisibleTo Include="DotnetCounters.UnitTests" />
   </ItemGroup>
 </Project>
