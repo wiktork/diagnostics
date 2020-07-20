@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Channels;
 
 namespace Microsoft.Diagnostics.Monitoring
 {
@@ -45,12 +46,17 @@ namespace Microsoft.Diagnostics.Monitoring
         private readonly LogFormat _logFormat;
         private readonly LogLevel _logLevel;
 
+        private readonly Channel<(LogObject o, int scopePop)> _channel;
+        
+        private int _currentCount;
+
         public StreamingLogger(string category, Stream outputStream, LogFormat format, LogLevel logLevel)
         {
             _outputStream = outputStream;
             _categoryName = category;
             _logFormat = format;
             _logLevel = logLevel;
+            _channel = Channel.CreateUnbounded(new UnboundedChannelOptions {  AllowSynchronousContinuations = false, SingleReader = true, SingleWriter = false})
         }
 
         public IDisposable BeginScope<TState>(TState state)
