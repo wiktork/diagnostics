@@ -24,22 +24,22 @@ namespace Microsoft.Diagnostics.Tools.Counters
     {
         public static async Task<int> Monitor(CancellationToken ct, List<string> counter_list, IConsole console, int processId, int refreshInterval, string name)
         {
+            if (name != null)
+            {
+                if (processId != 0)
+                {
+                    Console.WriteLine("Can only specify either --name or --process-id option.");
+                    return 0;
+                }
+                processId = CommandUtils.FindProcessIdWithName(name);
+                if (processId < 0)
+                {
+                    return 0;
+                }
+            }
+
             return await HandleExceptions(console, async () =>
             {
-                if (name != null)
-                {
-                    if (processId != 0)
-                    {
-                        Console.WriteLine("Can only specify either --name or --process-id option.");
-                        return 0;
-                    }
-                    processId = CommandUtils.FindProcessIdWithName(name);
-                    if (processId < 0)
-                    {
-                        return 0;
-                    }
-                }
-
                 EventPipeCounterPipelineSettings settings = BuildSettings(processId, counter_list, refreshInterval, console);
                 settings.Output = new ConsoleWriter();
                 await RunUILoop(settings, allowPause: true, ct);
@@ -48,23 +48,22 @@ namespace Microsoft.Diagnostics.Tools.Counters
 
         public static async Task<int> Collect(CancellationToken ct, List<string> counter_list, IConsole console, int processId, int refreshInterval, CountersExportFormat format, string output, string name)
         {
+            if (name != null)
+            {
+                if (processId != 0)
+                {
+                    Console.WriteLine("Can only specify either --name or --process-id option.");
+                    return 0;
+                }
+                processId = CommandUtils.FindProcessIdWithName(name);
+                if (processId < 0)
+                {
+                    return 0;
+                }
+            }
+
             return await HandleExceptions(console, async () =>
             {
-                if (name != null)
-                {
-                    if (processId != 0)
-                    {
-                        Console.WriteLine("Can only specify either --name or --process-id option.");
-                        return 0;
-                    }
-                    processId = CommandUtils.FindProcessIdWithName(name);
-                    if (processId < 0)
-                    {
-                        return 0;
-                    }
-                }
-
-
                 EventPipeCounterPipelineSettings settings = BuildSettings(processId, counter_list, refreshInterval, console);
 
                 if (output.Length == 0)

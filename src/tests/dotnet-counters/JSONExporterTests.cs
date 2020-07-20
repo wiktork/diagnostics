@@ -85,7 +85,7 @@ namespace DotnetCounters.UnitTests
             exporter.PipelineStarted();
             for (int i = 0; i < 20; i++)
             {
-                exporter.CounterPayloadReceived("myProvider", TestHelpers.GenerateCounterPayload(false, "heapSize", (double)i, 0, "Heap Size", "MB"), false);
+                exporter.CounterPayloadReceived("myProvider", TestHelpers.GenerateCounterPayload(false, "heapSize", (double)i, 0, "Heap Size", "MB"));
             }
             exporter.PipelineStopped();
 
@@ -119,7 +119,7 @@ namespace DotnetCounters.UnitTests
 
             for (int i = 0 ; i < 20; i++)
             {
-                exporter.CounterPayloadReceived("myProvider", TestHelpers.GenerateCounterPayload(false, "heapSize", 0, 0, "Heap Size", "MB"), false);
+                exporter.CounterPayloadReceived("myProvider", TestHelpers.GenerateCounterPayload(false, "heapSize", 0, 0, "Heap Size", "MB"));
             }
             exporter.PipelineStopped();
 
