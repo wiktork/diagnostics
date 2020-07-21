@@ -130,7 +130,7 @@ namespace DotnetCounters.UnitTests
                 // first } from end of the last event payload
                 // next ] from closing "Events" field 
                 // last } from closing the whole JSON
-                Assert.EndsWith("0 }]}", json);
+                Assert.EndsWith("0 }] }", json);
             }
         }
     }
