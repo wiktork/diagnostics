@@ -39,7 +39,7 @@ namespace Microsoft.Diagnostics.Monitoring.Contracts
         /// <remarks>Any exception other than PipelineException represents either
         /// a bug in the pipeline implementation because it was unanticipated or a failure in
         /// lower level runtime/OS/hardware to keep the process in a consistent state</remarks>
-        Task RunAsync();
+        Task RunAsync(CancellationToken token);
 
         /// <summary>
         /// Causes an unstarted or running pipeline to transition to the stopping state. In this
