@@ -15,17 +15,20 @@ namespace Microsoft.Diagnostics.Monitoring.Contracts
             Running,
             Stopping,
             Stopped,
+            Disposed,
         }
 
         private readonly CancellationTokenSource _disposeSource = new CancellationTokenSource();
 
         private int _state = (int)PipelineState.Unstarted;
 
-        protected abstract Task OnAbort();
+        protected abstract void OnAbort();
 
         protected abstract Task OnRun(CancellationToken token);
 
         protected abstract Task OnStop(CancellationToken token);
+
+        protected virtual ValueTask OnDispose() => default;
 
         public async Task RunAsync(CancellationToken token)
         {
@@ -56,8 +59,10 @@ namespace Microsoft.Diagnostics.Monitoring.Contracts
 
         public void Abort()
         {
+            //Should this be async?
             TransitionState(PipelineState.Stopping, PipelineState.Unstarted, PipelineState.Running, PipelineState.Stopping);
             OnAbort();
+            TransitionState(PipelineState.Stopped, PipelineState.Unstarted, PipelineState.Running, PipelineState.Stopping);
         }
 
         private void TransitionState(PipelineState newState, params PipelineState[] allowedOldStates)
@@ -83,7 +88,21 @@ namespace Microsoft.Diagnostics.Monitoring.Contracts
 
         public ValueTask DisposeAsync()
         {
-            _disposeSource.Cancel();
+            if (Interlocked.CompareExchange(ref _state, (int)PipelineState.Disposed, (int)PipelineState.Disposed) != (int)PipelineState.Disposed)
+            {
+                _disposeSource.Cancel();
+
+                //TODO Should we await outstanding operations here, or do we push that responsibility to the OnDispose method?
+                try
+                {
+                    return OnDispose();
+                }
+                finally
+                {
+                    _disposeSource.Dispose();
+                }
+            }
+            return default;
         }
     }
 }

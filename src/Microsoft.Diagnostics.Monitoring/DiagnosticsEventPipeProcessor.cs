@@ -22,7 +22,8 @@ namespace Microsoft.Diagnostics.Monitoring
     {
         Logs = 1,
         Metrics,
-        GCDump
+        GCDump,
+        Nettrace,
     }
 
     public class DiagnosticsEventPipeProcessor : IAsyncDisposable
