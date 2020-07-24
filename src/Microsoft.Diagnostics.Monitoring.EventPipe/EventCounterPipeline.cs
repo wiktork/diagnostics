@@ -14,6 +14,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
     {
         private DiagnosticsEventPipeProcessor _pipeProcessor;
         private EventPipeCounterPipelineSettings _settings;
+        private DiagnosticsClient _diagnosticsClient;
 
         public EventCounterPipeline(DiagnosticsClient client,
             EventPipeCounterPipelineSettings settings,
@@ -21,11 +22,20 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
         {
             _pipeProcessor = new DiagnosticsEventPipeProcessor(PipeMode.Metrics, metricLoggers: metricsLogger, metricIntervalSeconds: (int)settings.RefreshInterval.TotalSeconds);
             _settings = settings;
+            _diagnosticsClient = client;
         }
-
+         
         protected override Task OnRun(CancellationToken token)
         {
-            return _pipeProcessor.Process(_settings.ProcessId, Timeout.InfiniteTimeSpan, token);
+            //TODO Fixup duration; should not always be infinite
+            return _pipeProcessor.Process(_diagnosticsClient, Timeout.InfiniteTimeSpan, token);
+        }
+
+        protected override Task OnStop(CancellationToken token)
+        {
+            //TODO Stop apis on EventPipeEventSource.
+            return Task.CompletedTask;
+           
         }
 
         protected override async ValueTask OnDispose()

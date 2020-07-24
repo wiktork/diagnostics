@@ -24,6 +24,8 @@ namespace Microsoft.Diagnostics.NETCore.Client
             _processId = processId;
         }
 
+        public int Pid => _processId;
+
         /// <summary>
         /// Checks that the client is able to communicate with target process over diagnostic transport.
         /// </summary>

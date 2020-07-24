@@ -51,10 +51,9 @@ namespace DotnetMonitor.UnitTests
 
                 DiagnosticsEventPipeProcessor diagnosticsEventPipeProcessor = new DiagnosticsEventPipeProcessor(
                     PipeMode.Logs,
-                    loggerFactory,
-                    Enumerable.Empty<IMetricsLogger>());
+                    loggerFactory);
 
-                var processingTask = diagnosticsEventPipeProcessor.Process(testExecution.TestRunner.Pid, TimeSpan.FromSeconds(10), CancellationToken.None);
+                var processingTask = diagnosticsEventPipeProcessor.Process(new DiagnosticsClient(testExecution.TestRunner.Pid), TimeSpan.FromSeconds(10), CancellationToken.None);
 
                 //Add a small delay to make sure diagnostic processor had a chance to initialize
                 await Task.Delay(1000);

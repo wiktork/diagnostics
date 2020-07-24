@@ -18,7 +18,7 @@ namespace Microsoft.Diagnostics.Monitoring
         private sealed class DiagnosticsMonitor : IAsyncDisposable
         {
             private readonly MonitoringSourceConfiguration _sourceConfig;
-            private readonly CancellationTokenSource _stopProcessingSource;
+            private readonly TaskCompletionSource<object> _stopProcessingSource;
             private readonly object _lock = new object();
             private Task _currentTask;
             private bool _disposed;
@@ -26,12 +26,12 @@ namespace Microsoft.Diagnostics.Monitoring
             public DiagnosticsMonitor(MonitoringSourceConfiguration sourceConfig)
             {
                 _sourceConfig = sourceConfig;
-                _stopProcessingSource = new CancellationTokenSource();
+                _stopProcessingSource = new TaskCompletionSource<object>();
             }
 
             public Task CurrentProcessingTask => _currentTask;
 
-            public Task<Stream> ProcessEvents(int processId, TimeSpan duration, CancellationToken cancellationToken)
+            public Task<Stream> ProcessEvents(DiagnosticsClient client, TimeSpan duration, CancellationToken cancellationToken)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -48,7 +48,6 @@ namespace Microsoft.Diagnostics.Monitoring
                     }
 
                     EventPipeSession session = null;
-                    var client = new DiagnosticsClient(processId);
 
                     try
                     {
@@ -63,19 +62,17 @@ namespace Microsoft.Diagnostics.Monitoring
                         throw new InvalidOperationException("Failed to start the event pipe session", ex);
                     }
 
-                    CancellationTokenSource linkedSource = CancellationTokenSource.CreateLinkedTokenSource(_stopProcessingSource.Token, cancellationToken);
-
                     _currentTask = Task.Run(async () =>
                    {
-                       try
-                       {
-                           await Task.Delay(duration, linkedSource.Token);
-                       }
-                       finally
-                       {
-                           linkedSource.Dispose();
-                           StopSession(session);
-                       }
+                       using var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                       linkedSource.CancelAfter(duration);
+                       using var _ = linkedSource.Token.Register(() => _stopProcessingSource.TrySetResult(null));
+
+                       // Use TaskCompletionSource instead of Task.Delay with cancellation to avoid
+                       // using exceptions for normal termination of event stream.
+                       await _stopProcessingSource.Task;
+
+                       StopSession(session);
                    });
 
                     return Task.FromResult(session.EventStream);
@@ -84,7 +81,7 @@ namespace Microsoft.Diagnostics.Monitoring
 
             public void StopProcessing()
             {
-                _stopProcessingSource.Cancel();
+                _stopProcessingSource.TrySetResult(null);
             }
 
             private static void StopSession(EventPipeSession session)
@@ -129,7 +126,7 @@ namespace Microsoft.Diagnostics.Monitoring
                     _currentTask = null;
                     _disposed = true;
                 }
-                _stopProcessingSource.Cancel();
+                _stopProcessingSource.TrySetResult(null);
                 if (currentTask != null)
                 {
                     try
@@ -140,7 +137,6 @@ namespace Microsoft.Diagnostics.Monitoring
                     {
                     }
                 }
-                _stopProcessingSource?.Dispose();
             }
         }
     }

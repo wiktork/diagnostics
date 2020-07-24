@@ -68,7 +68,9 @@ namespace Microsoft.Diagnostics.Monitoring
             await using var processor = new DiagnosticsEventPipeProcessor(PipeMode.GCDump,
                 gcGraph: graph);
 
-            await processor.Process(pid, Timeout.InfiniteTimeSpan, cancellationToken);
+            var client = new DiagnosticsClient(pid);
+
+            await processor.Process(client, Timeout.InfiniteTimeSpan, cancellationToken);
 
             var dumper = new GCHeapDump(graph);
             dumper.CreationTool = "dotnet-monitor";
@@ -86,7 +88,8 @@ namespace Microsoft.Diagnostics.Monitoring
             TraceStreamOutput streamWithCleanup = new TraceStreamOutput(outputStream);
             DiagnosticsEventPipeProcessor pipeProcessor = new DiagnosticsEventPipeProcessor(PipeMode.Nettrace, configuration: configuration, streamOutput: streamWithCleanup);
 
-            return pipeProcessor.Process(pid, duration, token);
+            var client = new DiagnosticsClient(pid);
+            return pipeProcessor.Process(client, duration, token);
         }
 
         public async Task StartLogs(Stream outputStream, int pid, TimeSpan duration, LogFormat format, LogLevel level, CancellationToken token)
@@ -99,7 +102,8 @@ namespace Microsoft.Diagnostics.Monitoring
                 loggerFactory: loggerFactory,
                 logsLevel: level);
 
-            await processor.Process(pid, duration, token);
+            var client = new DiagnosticsClient(pid);
+            await processor.Process(client, duration, token);
         }
 
         private static NETCore.Client.DumpType MapDumpType(DumpType dumpType)

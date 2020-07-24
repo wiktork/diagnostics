@@ -24,6 +24,7 @@ namespace Microsoft.Diagnostics.Monitoring
         Logs = 1,
         Metrics,
         GCDump,
+        ProcessInfo,
         Nettrace,
     }
 
@@ -37,16 +38,19 @@ namespace Microsoft.Diagnostics.Monitoring
         private readonly LogLevel _logsLevel;
         private readonly MonitoringSourceConfiguration _userConfig;
         private readonly ITraceStreamOutput _streamOutput;
+        private readonly Action<string> _processInfoCallback;
+
 
         public DiagnosticsEventPipeProcessor(
             PipeMode mode,
-            ILoggerFactory loggerFactory = null,
-            IEnumerable<IMetricsLogger> metricLoggers = null,
-            int metricIntervalSeconds = 10,
-            MemoryGraph gcGraph = null,
-            LogLevel logsLevel = LogLevel.Debug,
-            MonitoringSourceConfiguration configuration = null,
-            ITraceStreamOutput streamOutput = null)
+            ILoggerFactory loggerFactory = null,                // PipeMode = Logs
+            LogLevel logsLevel = LogLevel.Debug,                // PipeMode = Logs
+            IEnumerable<IMetricsLogger> metricLoggers = null,   // PipeMode = Metrics
+            int metricIntervalSeconds = 10,                     // PipeMode = Metrics
+            MemoryGraph gcGraph = null,                         // PipeMode = GCDump
+            Action<string> processInfoCallback = null,          // PipeMode = ProcessInfo
+            MonitoringSourceConfiguration configuration = null, // PipeMode = Nettrace
+            ITraceStreamOutput streamOutput = null)             // PipeMode = Nettrace
         {
             _metricLoggers = metricLoggers ?? Enumerable.Empty<IMetricsLogger>();
             _mode = mode;
@@ -56,9 +60,10 @@ namespace Microsoft.Diagnostics.Monitoring
             _logsLevel = logsLevel;
             _userConfig = configuration;
             _streamOutput = streamOutput;
+            _processInfoCallback = processInfoCallback;
         }
 
-        public async Task Process(int pid, TimeSpan duration, CancellationToken token)
+        public async Task Process(DiagnosticsClient client, TimeSpan duration, CancellationToken token)
         {
             await await Task.Factory.StartNew(async () =>
             {
@@ -86,7 +91,7 @@ namespace Microsoft.Diagnostics.Monitoring
                     }
 
                     monitor = new DiagnosticsMonitor(config);
-                    Stream sessionStream = await monitor.ProcessEvents(pid, duration, token);
+                    Stream sessionStream = await monitor.ProcessEvents(client, duration, token);
 
                     if (_mode == PipeMode.Nettrace)
                     {
@@ -115,7 +120,13 @@ namespace Microsoft.Diagnostics.Monitoring
                     if (_mode == PipeMode.GCDump)
                     {
                         // GC
-                        handleEventsTask = HandleGCEvents(source, pid, stopFunc, token);
+                        handleEventsTask = HandleGCEvents(source, client.Pid, stopFunc, token);
+                    }
+
+                    if (_mode == PipeMode.ProcessInfo)
+                    {
+                        // ProcessInfo
+                        HandleProcessInfo(source, stopFunc, token);
                     }
 
                     source.Process();
@@ -473,6 +484,19 @@ namespace Microsoft.Diagnostics.Monitoring
             dumper.ConvertHeapDataToGraph();
 
             _gcGraph.AllowReading();
+        }
+
+        private void HandleProcessInfo(EventPipeEventSource source, Func<Task> stopFunc, CancellationToken token)
+        {
+            source.Dynamic.AddCallbackForProviderEvent(MonitoringSourceConfiguration.EventPipeProviderName, "ProcessInfo", traceEvent =>
+            {
+                _processInfoCallback?.Invoke((string)traceEvent.PayloadByName("CommandLine"));
+            });
+
+            source.Dynamic.All += traceEvent =>
+            {
+                stopFunc();
+            };
         }
 
         public async ValueTask DisposeAsync()
