@@ -87,7 +87,7 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
         }
 
         [HttpGet("trace/{pid?}")]
-        public Task<ActionResult> Trace(
+        public ActionResult Trace(
             int? pid,
             [FromQuery]TraceProfile profile = DefaultTraceProfiles,
             [FromQuery][Range(-1, int.MaxValue)] int durationSeconds = 30,
@@ -95,7 +95,7 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
         {
             TimeSpan duration = ConvertSecondsToTimeSpan(durationSeconds);
 
-            return this.InvokeService(async () =>
+            return this.InvokeService(() =>
             {
                 var configurations = new List<MonitoringSourceConfiguration>();
                 if (profile.HasFlag(TraceProfile.Cpu))
@@ -117,19 +117,19 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
 
                 var aggregateConfiguration = new AggregateSourceConfiguration(configurations.ToArray());
 
-                return await StartTrace(pid, aggregateConfiguration, duration);
+                return StartTrace(pid, aggregateConfiguration, duration);
             });
         }
 
         [HttpPost("trace/{pid?}")]
-        public Task<ActionResult> TraceCustomConfiguration(
+        public ActionResult TraceCustomConfiguration(
             int? pid,
             [FromBody][Required] EventPipeConfigurationModel configuration,
             [FromQuery][Range(-1, int.MaxValue)] int durationSeconds = 30)
         {
             TimeSpan duration = ConvertSecondsToTimeSpan(durationSeconds);
 
-            return this.InvokeService(async () =>
+            return this.InvokeService(() =>
             {
                 var providers = new List<EventPipeProvider>();
 
@@ -153,7 +153,7 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
                     requestRundown: configuration.RequestRundown,
                     bufferSizeInMB: configuration.BufferSizeInMB);
 
-                return await StartTrace(pid, traceConfiguration, duration);
+                return StartTrace(pid, traceConfiguration, duration);
             });
         }
 
@@ -182,11 +182,14 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
             });
         }
 
-        private async Task<StreamWithCleanupResult> StartTrace(int? pid, MonitoringSourceConfiguration configuration, TimeSpan duration)
+        private ActionResult StartTrace(int? pid, MonitoringSourceConfiguration configuration, TimeSpan duration)
         {
             int pidValue = _diagnosticServices.ResolveProcess(pid);
-            IStreamWithCleanup result = await _diagnosticServices.StartTrace(pidValue, configuration, duration, this.HttpContext.RequestAborted);
-            return new StreamWithCleanupResult(result, "application/octet-stream", FormattableString.Invariant($"{GetFileNameTimeStampUtcNow()}_{pidValue}.nettrace"));
+
+            return new OutputStreamResult(async (outputStream, token) =>
+            {
+                await _diagnosticServices.StartTrace(outputStream, pidValue, configuration, duration, token);
+            }, "application/octet-stream", FormattableString.Invariant($"{GetFileNameTimeStampUtcNow()}_{pidValue}.nettrace"));
         }
 
         private static TimeSpan ConvertSecondsToTimeSpan(int durationSeconds)

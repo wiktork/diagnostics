@@ -81,25 +81,12 @@ namespace Microsoft.Diagnostics.Monitoring
             return stream;
         }
 
-        public async Task StartTrace(int pid, Stream outputStream, MonitoringSourceConfiguration configuration, TimeSpan duration, CancellationToken token)
+        public Task StartTrace(Stream outputStream, int pid, MonitoringSourceConfiguration configuration, TimeSpan duration, CancellationToken token)
         {
-            DiagnosticsEventPipeProcessor pipeProcessor = new DiagnosticsEventPipeProcessor(PipeMode.Nettrace, configuration: configuration);
+            TraceStreamOutput streamWithCleanup = new TraceStreamOutput(outputStream);
+            DiagnosticsEventPipeProcessor pipeProcessor = new DiagnosticsEventPipeProcessor(PipeMode.Nettrace, configuration: configuration, streamOutput: streamWithCleanup);
 
-            Func<Task> processData = async () =>
-            {
-                Task process = pipeProcessor.Process(pid, duration, token);
-
-                try
-                {
-                    await process;
-                }
-                finally
-                {
-                    await pipeProcessor.DisposeAsync();
-                }
-            };
-
-            return new StreamWithCleanup(processData);
+            return pipeProcessor.Process(pid, duration, token);
         }
 
         public async Task StartLogs(Stream outputStream, int pid, TimeSpan duration, LogFormat format, LogLevel level, CancellationToken token)
@@ -194,27 +181,18 @@ namespace Microsoft.Diagnostics.Monitoring
         /// any underlying data structures associated with the DiagnosticsMonitor once the caller is done
         /// processing the stream.
         /// </summary>
-        private sealed class StreamWithCleanup : ITraceStreamOutput
+        private sealed class TraceStreamOutput : ITraceStreamOutput
         {
             private readonly Stream _outputStream;
 
-            public StreamWithCleanup(Stream outputStream)
+            public TraceStreamOutput(Stream outputStream)
             {
-                File
-                _cleanupTask = cleanupTask;
+                _outputStream = outputStream;
             }
 
-            public Task<Stream> Stream => _streamReceived.Task;
-
-            public async ValueTask DisposeAsync()
+            public async Task EventStreamAvailable(Stream eventStream, CancellationToken token)
             {
-                await _cleanupTask;
-            }
-
-            public Task EventStreamAvailable(Stream eventStream)
-            {
-                _streamReceived.TrySetResult(eventStream);
-                return Task.CompletedTask;
+                await eventStream.CopyToAsync(_outputStream, 0x1000, token);
             }
         }
     }

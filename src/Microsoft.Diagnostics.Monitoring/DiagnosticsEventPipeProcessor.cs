@@ -27,7 +27,7 @@ namespace Microsoft.Diagnostics.Monitoring
         Nettrace,
     }
 
-    public class DiagnosticsEventPipeProcessor : IAsyncDisposable
+    public partial class DiagnosticsEventPipeProcessor : IAsyncDisposable
     {
         private readonly MemoryGraph _gcGraph;
         private readonly ILoggerFactory _loggerFactory;
@@ -90,7 +90,8 @@ namespace Microsoft.Diagnostics.Monitoring
 
                     if (_mode == PipeMode.Nettrace)
                     {
-                        await _streamOutput.EventStreamAvailable(sessionStream);
+                        //Await the callee, then cleanup the stream;
+                        await _streamOutput.EventStreamAvailable(sessionStream, token);
                         return;
                     }
 

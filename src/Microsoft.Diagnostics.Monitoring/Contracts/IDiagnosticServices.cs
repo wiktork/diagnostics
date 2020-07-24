@@ -25,14 +25,9 @@ namespace Microsoft.Diagnostics.Monitoring
 
         Task<Stream> GetGcDump(int pid, CancellationToken token);
 
-        Task<IStreamWithCleanup> StartTrace(int pid, MonitoringSourceConfiguration configuration, TimeSpan duration, CancellationToken token);
+        Task StartTrace(Stream outputStream, int pid, MonitoringSourceConfiguration configuration, TimeSpan duration, CancellationToken token);
 
         Task StartLogs(Stream outputStream, int pid, TimeSpan duration, LogFormat logFormat, LogLevel logLevel, CancellationToken token);
-    }
-
-    public interface IStreamWithCleanup : IAsyncDisposable
-    {
-        Stream Stream { get; }
     }
 
     public enum DumpType
