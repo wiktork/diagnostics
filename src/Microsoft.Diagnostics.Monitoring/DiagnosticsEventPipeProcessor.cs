@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using Graphs;
+using Microsoft.Diagnostics.Monitoring.Contracts;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.Diagnostics.Tracing;
 using Microsoft.Diagnostics.Tracing.Parsers.Clr;
@@ -34,6 +35,8 @@ namespace Microsoft.Diagnostics.Monitoring
         private readonly PipeMode _mode;
         private readonly int _metricIntervalSeconds;
         private readonly LogLevel _logsLevel;
+        private readonly MonitoringSourceConfiguration _userConfig;
+        private readonly ITraceStreamOutput _streamOutput;
 
         public DiagnosticsEventPipeProcessor(
             PipeMode mode,
@@ -41,7 +44,9 @@ namespace Microsoft.Diagnostics.Monitoring
             IEnumerable<IMetricsLogger> metricLoggers = null,
             int metricIntervalSeconds = 10,
             MemoryGraph gcGraph = null,
-            LogLevel logsLevel = LogLevel.Debug)
+            LogLevel logsLevel = LogLevel.Debug,
+            MonitoringSourceConfiguration configuration = null,
+            ITraceStreamOutput streamOutput = null)
         {
             _metricLoggers = metricLoggers ?? Enumerable.Empty<IMetricsLogger>();
             _mode = mode;
@@ -49,6 +54,8 @@ namespace Microsoft.Diagnostics.Monitoring
             _gcGraph = gcGraph;
             _metricIntervalSeconds = metricIntervalSeconds;
             _logsLevel = logsLevel;
+            _userConfig = configuration;
+            _streamOutput = streamOutput;
         }
 
         public async Task Process(int pid, TimeSpan duration, CancellationToken token)
@@ -65,17 +72,28 @@ namespace Microsoft.Diagnostics.Monitoring
                     {
                         config = new LoggingSourceConfiguration(_logsLevel);
                     }
-                    if (_mode == PipeMode.Metrics)
+                    else if (_mode == PipeMode.Metrics)
                     {
                         config = new MetricSourceConfiguration(_metricIntervalSeconds);
                     }
-                    if (_mode == PipeMode.GCDump)
+                    else if (_mode == PipeMode.GCDump)
                     {
                         config = new GCDumpSourceConfiguration();
+                    }
+                    else if (_mode == PipeMode.Nettrace)
+                    {
+                        config = _userConfig;
                     }
 
                     monitor = new DiagnosticsMonitor(config);
                     Stream sessionStream = await monitor.ProcessEvents(pid, duration, token);
+
+                    if (_mode == PipeMode.Nettrace)
+                    {
+                        await _streamOutput.EventStreamAvailable(sessionStream);
+                        return;
+                    }
+
                     source = new EventPipeEventSource(sessionStream);
 
                     // Allows the event handling routines to stop processing before the duration expires.

@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 
 namespace Microsoft.Diagnostics.Monitoring
 {
-    public sealed class DiagnosticsMonitor : IAsyncDisposable
+    internal sealed class DiagnosticsMonitor : IAsyncDisposable
     {
         private readonly MonitoringSourceConfiguration _sourceConfig;
         private readonly CancellationTokenSource _stopProcessingSource;

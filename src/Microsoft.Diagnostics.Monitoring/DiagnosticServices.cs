@@ -12,7 +12,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using FastSerialization;
 using Graphs;
+using Microsoft.Diagnostics.Monitoring.Contracts;
 using Microsoft.Diagnostics.NETCore.Client;
+using Microsoft.Diagnostics.Tracing.Parsers.Tpl;
 using Microsoft.Extensions.Logging;
 
 namespace Microsoft.Diagnostics.Monitoring
@@ -79,11 +81,25 @@ namespace Microsoft.Diagnostics.Monitoring
             return stream;
         }
 
-        public async Task<IStreamWithCleanup> StartTrace(int pid, MonitoringSourceConfiguration configuration, TimeSpan duration, CancellationToken token)
+        public async Task StartTrace(int pid, Stream outputStream, MonitoringSourceConfiguration configuration, TimeSpan duration, CancellationToken token)
         {
-            DiagnosticsMonitor monitor = new DiagnosticsMonitor(configuration);
-            Stream stream = await monitor.ProcessEvents(pid, duration, token);
-            return new StreamWithCleanup(monitor, stream);
+            DiagnosticsEventPipeProcessor pipeProcessor = new DiagnosticsEventPipeProcessor(PipeMode.Nettrace, configuration: configuration);
+
+            Func<Task> processData = async () =>
+            {
+                Task process = pipeProcessor.Process(pid, duration, token);
+
+                try
+                {
+                    await process;
+                }
+                finally
+                {
+                    await pipeProcessor.DisposeAsync();
+                }
+            };
+
+            return new StreamWithCleanup(processData);
         }
 
         public async Task StartLogs(Stream outputStream, int pid, TimeSpan duration, LogFormat format, LogLevel level, CancellationToken token)
@@ -178,28 +194,27 @@ namespace Microsoft.Diagnostics.Monitoring
         /// any underlying data structures associated with the DiagnosticsMonitor once the caller is done
         /// processing the stream.
         /// </summary>
-        private sealed class StreamWithCleanup : IStreamWithCleanup
+        private sealed class StreamWithCleanup : ITraceStreamOutput
         {
-            private readonly DiagnosticsMonitor _monitor;
+            private readonly Stream _outputStream;
 
-            public StreamWithCleanup(DiagnosticsMonitor monitor, Stream stream)
+            public StreamWithCleanup(Stream outputStream)
             {
-                Stream = stream;
-                _monitor = monitor;
+                File
+                _cleanupTask = cleanupTask;
             }
 
-            public Stream Stream { get; }
+            public Task<Stream> Stream => _streamReceived.Task;
 
             public async ValueTask DisposeAsync()
             {
-                try
-                {
-                    await _monitor.CurrentProcessingTask;
-                }
-                finally
-                {
-                    await _monitor.DisposeAsync();
-                }
+                await _cleanupTask;
+            }
+
+            public Task EventStreamAvailable(Stream eventStream)
+            {
+                _streamReceived.TrySetResult(eventStream);
+                return Task.CompletedTask;
             }
         }
     }

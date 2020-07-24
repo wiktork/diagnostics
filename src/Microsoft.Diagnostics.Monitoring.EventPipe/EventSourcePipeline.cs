@@ -10,29 +10,10 @@ using System.Threading.Tasks;
 
 namespace Microsoft.Diagnostics.Monitoring.EventPipe
 {
-    public class EventSourcePipeline : Pipeline
+    public abstract class EventSourcePipeline : Pipeline
     {
-        private readonly MemoryGraph _gcGraph;
-        private readonly ILoggerFactory _loggerFactory;
-        private readonly IEnumerable<IMetricsLogger> _metricLoggers;
-        private readonly PipeMode _mode;
-        private readonly int _metricIntervalSeconds;
-        private readonly LogLevel _logsLevel;
-
-        public EventSourcePipeline(
-                    PipeMode mode,
-                    ILoggerFactory loggerFactory = null,
-                    IEnumerable<IMetricsLogger> metricLoggers = null,
-                    int metricIntervalSeconds = 10,
-                    MemoryGraph gcGraph = null,
-                    LogLevel logsLevel = LogLevel.Debug)
+        public EventSourcePipeline()
         {
-            _metricLoggers = metricLoggers ?? Enumerable.Empty<IMetricsLogger>();
-            _mode = mode;
-            _loggerFactory = loggerFactory;
-            _gcGraph = gcGraph;
-            _metricIntervalSeconds = metricIntervalSeconds;
-            _logsLevel = logsLevel;
         }
 
         protected override void OnAbort()
@@ -51,7 +32,6 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
 
         protected override ValueTask OnDispose()
         {
-
             return base.OnDispose();
         }
     }

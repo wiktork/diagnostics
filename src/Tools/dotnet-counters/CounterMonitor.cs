@@ -191,7 +191,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                 tasks.Add(keyTask);
                 if(pipeline != null)
                 {
-                    tasks.Add(pipeline.RunAsync());
+                    tasks.Add(pipeline.RunAsync(CancellationToken.None));
                 }
                 Task completedTask = await Task.WhenAny(tasks);
                 if(completedTask == keyTask)

@@ -68,7 +68,7 @@ namespace Microsoft.Diagnostics.Monitoring
             _runPipeline = new Lazy<Task>(RunPipeline);
         }
 
-        public Task RunAsync()
+        public Task RunAsync(CancellationToken token)
         {
             return _runPipeline.Value;
         }
