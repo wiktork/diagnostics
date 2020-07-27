@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Microsoft.Diagnostics.Monitoring\Microsoft.Diagnostics.Monitoring.csproj" />
+	  <ProjectReference Include="..\Microsoft.Diagnostics.Monitoring.Egress\Microsoft.Diagnostics.Monitoring.Egress.csproj" />
   </ItemGroup>
 
 </Project>
