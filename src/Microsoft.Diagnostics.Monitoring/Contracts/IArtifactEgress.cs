@@ -9,6 +9,6 @@ namespace Microsoft.Diagnostics.Monitoring.Contracts
 {
     public interface IArtifactEgress
     {
-        Task UploadArtifact(string category, string name, Stream artifact, IProgress<long> progress, CancellationToken token);
+        Task<string> UploadArtifact(string category, string name, Stream artifact, IProgress<long> progress, CancellationToken token);
     }
 }

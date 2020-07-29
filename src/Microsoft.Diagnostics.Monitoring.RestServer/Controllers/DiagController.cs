@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Diagnostics.Monitoring.Contracts;
 using Microsoft.Diagnostics.Monitoring.RestServer.Models;
 using Microsoft.Diagnostics.Monitoring.RestServer.Validation;
 using Microsoft.Diagnostics.NETCore.Client;
@@ -36,11 +37,13 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
 
         private readonly ILogger<DiagController> _logger;
         private readonly IDiagnosticServices _diagnosticServices;
+        private readonly IArtifactEgress _artifactEgress;
 
-        public DiagController(ILogger<DiagController> logger, IDiagnosticServices diagnosticServices)
+        public DiagController(ILogger<DiagController> logger, IDiagnosticServices diagnosticServices, IArtifactEgress artifactEgress)
         {
             _logger = logger;
             _diagnosticServices = diagnosticServices;
+            _artifactEgress = artifactEgress;
         }
 
         [HttpGet("processes")]
@@ -71,7 +74,14 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
 
                 //Compression is done automatically by the response
                 //Chunking is done because the result has no content-length
-                return File(result, "application/octet-stream", dumpFileName);
+                
+                if (_artifactEgress == null)
+                {
+                    return File(result, "application/octet-stream", dumpFileName);
+                }
+
+                var uploadResult = await _artifactEgress.UploadArtifact("dump", dumpFileName, result, null, this.HttpContext.RequestAborted);
+                return new JsonResult(new { UploadResult = uploadResult });
             });
         }
 
@@ -82,7 +92,15 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
             {
                 int pidValue = _diagnosticServices.ResolveProcess(pid);
                 Stream result = await _diagnosticServices.GetGcDump(pidValue, this.HttpContext.RequestAborted);
-                return File(result, "application/octet-stream", FormattableString.Invariant($"{GetFileNameTimeStampUtcNow()}_{pidValue}.gcdump"));
+
+                if (_artifactEgress == null)
+                {
+                    return File(result, "application/octet-stream", FormattableString.Invariant($"{GetFileNameTimeStampUtcNow()}_{pidValue}.gcdump"));
+                }
+
+                var uploadResult = await _artifactEgress.UploadArtifact("gcdump", FormattableString.Invariant($"{GetFileNameTimeStampUtcNow()}_{pidValue}.gcdump"), result, null, this.HttpContext.RequestAborted);
+                return new JsonResult(new { UploadResult = uploadResult });
+                
             });
         }
 
@@ -182,10 +200,11 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
             });
         }
 
-        private async Task<StreamWithCleanupResult> StartTrace(int? pid, MonitoringSourceConfiguration configuration, TimeSpan duration)
+        private async Task<ActionResult> StartTrace(int? pid, MonitoringSourceConfiguration configuration, TimeSpan duration)
         {
             int pidValue = _diagnosticServices.ResolveProcess(pid);
             IStreamWithCleanup result = await _diagnosticServices.StartTrace(pidValue, configuration, duration, this.HttpContext.RequestAborted);
+
             return new StreamWithCleanupResult(result, "application/octet-stream", FormattableString.Invariant($"{GetFileNameTimeStampUtcNow()}_{pidValue}.nettrace"));
         }
 

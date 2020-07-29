@@ -1,4 +1,6 @@
 ﻿using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
+using Azure.Storage.Blobs.Specialized;
 using Microsoft.Diagnostics.Monitoring.Contracts;
 using Microsoft.Extensions.Azure;
 using System;
@@ -16,7 +18,7 @@ namespace Microsoft.Diagnostics.Monitoring
         {
         }
 
-        public async Task UploadArtifact(string category, string name, Stream artifact, IProgress<long> progress, CancellationToken token)
+        public async Task<string> UploadArtifact(string category, string name, Stream artifact, IProgress<long> progress, CancellationToken token)
         {
             string connectionInfo = "/etc/blobconnection/connection";
             BlobServiceClient serviceClient = null;
@@ -26,7 +28,7 @@ namespace Microsoft.Diagnostics.Monitoring
             }
             if (serviceClient == null)
             {
-                return;
+                return string.Empty;
             }
 
             var blobContainerClient = serviceClient.GetBlobContainerClient(category);
@@ -34,6 +36,7 @@ namespace Microsoft.Diagnostics.Monitoring
 
             var blobClient = blobContainerClient.GetBlobClient(name);
             var response = await blobClient.UploadAsync(artifact, cancellationToken: token, progressHandler: progress);
+            return blobClient.Uri.ToString();
         }
     }
 }

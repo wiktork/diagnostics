@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Diagnostics.Monitoring.Contracts;
 using Microsoft.Diagnostics.Monitoring.RestServer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,6 +59,8 @@ namespace Microsoft.Diagnostics.Monitoring
                 services.AddSingleton<MetricsStoreService>();
                 services.AddHostedService<MetricsService>();
             }
+
+            services.AddSingleton<IArtifactEgress, AzureFileEgress>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
