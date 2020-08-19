@@ -11,6 +11,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Graphs;
+using Microsoft.Diagnostics.Monitoring.Contracts;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.Diagnostics.Tracing;
 using Microsoft.Diagnostics.Tracing.Parsers.Clr;
@@ -38,8 +39,6 @@ namespace Microsoft.Diagnostics.Monitoring
         private readonly Action<string> _processInfoCallback;
         private readonly MonitoringSourceConfiguration _userConfig;
         private readonly ITraceStreamOutput _streamOutput;
-        private readonly Action<string> _processInfoCallback;
-
 
         public DiagnosticsEventPipeProcessor(
             PipeMode mode,
@@ -125,7 +124,7 @@ namespace Microsoft.Diagnostics.Monitoring
                     if (_mode == PipeMode.GCDump)
                     {
                         // GC
-                        handleEventsTask = HandleGCEvents(source, client.Pid, stopFunc, token);
+                        handleEventsTask = HandleGCEvents(source, pid, stopFunc, token);
                     }
 
                     if (_mode == PipeMode.ProcessInfo)

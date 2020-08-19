@@ -90,7 +90,7 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
         }
 
         [HttpGet("trace/{processFilter?}")]
-        public Task<ActionResult> Trace(
+        public ActionResult Trace(
             ProcessFilter? processFilter,
             [FromQuery]TraceProfile profile = DefaultTraceProfiles,
             [FromQuery][Range(-1, int.MaxValue)] int durationSeconds = 30,
@@ -120,12 +120,12 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
 
                 var aggregateConfiguration = new AggregateSourceConfiguration(configurations.ToArray());
 
-                return await StartTrace(processFilter, aggregateConfiguration, duration);
+                return StartTrace(processFilter, aggregateConfiguration, duration);
             });
         }
 
         [HttpPost("trace/{processFilter?}")]
-        public Task<ActionResult> TraceCustomConfiguration(
+        public ActionResult TraceCustomConfiguration(
             ProcessFilter? processFilter,
             [FromBody][Required] EventPipeConfigurationModel configuration,
             [FromQuery][Range(-1, int.MaxValue)] int durationSeconds = 30)
@@ -156,7 +156,7 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
                     requestRundown: configuration.RequestRundown,
                     bufferSizeInMB: configuration.BufferSizeInMB);
 
-                return await StartTrace(processFilter, traceConfiguration, duration);
+                return StartTrace(processFilter, traceConfiguration, duration);
             });
         }
 
@@ -196,8 +196,8 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
             return new OutputStreamResult(async (outputStream, token) =>
             {
                 IProcessInfo processInfo = await _diagnosticServices.GetProcessAsync(processFilter, HttpContext.RequestAborted);
-                IStreamWithCleanup result = await _diagnosticServices.StartTrace(processInfo, configuration, outputStream, duration, this.HttpContext.RequestAborted);
-            }, "application/octet-stream", FormattableString.Invariant($"{GetFileNameTimeStampUtcNow()}_{processInfo.Pid}.nettrace"));
+                 await _diagnosticServices.StartTrace(processInfo, configuration, outputStream, duration, this.HttpContext.RequestAborted);
+            }, "application/octet-stream", FormattableString.Invariant($"{GetFileNameTimeStampUtcNow()}_{processFilter.Value.ProcessId}.nettrace"));
         }
 
         private static TimeSpan ConvertSecondsToTimeSpan(int durationSeconds)
