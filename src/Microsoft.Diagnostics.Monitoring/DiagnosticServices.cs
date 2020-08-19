@@ -12,7 +12,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using FastSerialization;
 using Graphs;
+using Microsoft.Diagnostics.Monitoring.Contracts;
 using Microsoft.Diagnostics.NETCore.Client;
+using Microsoft.Diagnostics.Tracing.Parsers.Tpl;
 using Microsoft.Extensions.Logging;
 
 namespace Microsoft.Diagnostics.Monitoring
@@ -79,6 +81,8 @@ namespace Microsoft.Diagnostics.Monitoring
 
             await processor.Process(pi.Client, pi.Pid, Timeout.InfiniteTimeSpan, token);
 
+            await processor.Process(client, Timeout.InfiniteTimeSpan, cancellationToken);
+
             var dumper = new GCHeapDump(graph);
             dumper.CreationTool = "dotnet-monitor";
 
@@ -90,11 +94,24 @@ namespace Microsoft.Diagnostics.Monitoring
             return stream;
         }
 
-        public async Task<IStreamWithCleanup> StartTrace(IProcessInfo pi, MonitoringSourceConfiguration configuration, TimeSpan duration, CancellationToken token)
+        public async Task StartTrace(IProcessInfo pi, MonitoringSourceConfiguration configuration, Stream outputStream, TimeSpan duration, CancellationToken token)
         {
-            DiagnosticsMonitor monitor = new DiagnosticsMonitor(configuration);
-            Stream stream = await monitor.ProcessEvents(pi.Client, duration, token);
-            return new StreamWithCleanup(monitor, stream);
+            TraceStreamOutput streamWithCleanup = new TraceStreamOutput(outputStream);
+            DiagnosticsEventPipeProcessor pipeProcessor = new DiagnosticsEventPipeProcessor(PipeMode.Nettrace, configuration: configuration, streamOutput: outputStream);
+
+            Func<Task> processData = async () =>
+            {
+                Task process = pipeProcessor.Process(pi.Client, pi.Pid, duration, token);
+
+                try
+                {
+                    await process;
+                }
+                finally
+                {
+                    await pipeProcessor.DisposeAsync();
+                }
+            };
         }
 
         public async Task StartLogs(Stream outputStream, IProcessInfo pi, TimeSpan duration, LogFormat format, LogLevel level, CancellationToken token)
@@ -226,51 +243,18 @@ namespace Microsoft.Diagnostics.Monitoring
         /// any underlying data structures associated with the DiagnosticsMonitor once the caller is done
         /// processing the stream.
         /// </summary>
-        private sealed class StreamWithCleanup : IStreamWithCleanup
+        private sealed class TraceStreamOutput : ITraceStreamOutput
         {
-            private readonly DiagnosticsMonitor _monitor;
+            private readonly Stream _outputStream;
 
-            public StreamWithCleanup(DiagnosticsMonitor monitor, Stream stream)
+            public TraceStreamOutput(Stream outputStream)
             {
-                Stream = stream;
-                _monitor = monitor;
+                _outputStream = outputStream;
             }
 
-            public Stream Stream { get; }
-
-            public async ValueTask DisposeAsync()
+            public async Task EventStreamAvailable(Stream eventStream, CancellationToken token)
             {
-                try
-                {
-                    await _monitor.CurrentProcessingTask;
-                }
-                finally
-                {
-                    await _monitor.DisposeAsync();
-                }
-            }
-        }
-
-        private sealed class ProcessInfo : IProcessInfo
-        {
-            public ProcessInfo(DiagnosticsClient client, Guid uid, int pid)
-            {
-                Client = client;
-                Pid = pid;
-                Uid = uid;
-            }
-
-            public static ProcessInfo FromEndpointInfo(IEndpointInfo endpointInfo)
-            {
-                if (null == endpointInfo)
-                {
-                    throw new ArgumentNullException(nameof(endpointInfo));
-                }
-
-                return new ProcessInfo(
-                    new DiagnosticsClient(endpointInfo.Endpoint),
-                    endpointInfo.RuntimeInstanceCookie,
-                    endpointInfo.ProcessId);
+                await eventStream.CopyToAsync(_outputStream, 0x1000, token);
             }
 
             public DiagnosticsClient Client { get; }
@@ -279,5 +263,34 @@ namespace Microsoft.Diagnostics.Monitoring
 
             public Guid Uid { get; }
         }
+    }
+
+    private sealed class ProcessInfo : IProcessInfo
+    {
+        public ProcessInfo(DiagnosticsClient client, Guid uid, int pid)
+        {
+            Client = client;
+            Pid = pid;
+            Uid = uid;
+        }
+
+        public static ProcessInfo FromEndpointInfo(IEndpointInfo endpointInfo)
+        {
+            if (null == endpointInfo)
+            {
+                throw new ArgumentNullException(nameof(endpointInfo));
+            }
+
+            return new ProcessInfo(
+                new DiagnosticsClient(endpointInfo.Endpoint),
+                endpointInfo.RuntimeInstanceCookie,
+                endpointInfo.ProcessId);
+        }
+
+        public DiagnosticsClient Client { get; }
+
+        public int Pid { get; }
+
+        public Guid Uid { get; }
     }
 }

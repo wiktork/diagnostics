@@ -10,37 +10,39 @@ using Microsoft.Diagnostics.NETCore.Client;
 
 namespace Microsoft.Diagnostics.Monitoring
 {
-    public sealed class DiagnosticsMonitor : IAsyncDisposable
+    partial class DiagnosticsEventPipeProcessor
     {
-        private readonly MonitoringSourceConfiguration _sourceConfig;
-        private readonly TaskCompletionSource<object> _stopProcessingSource;
-        private readonly object _lock = new object();
-        private Task _currentTask;
-        private bool _disposed;
-
-        public DiagnosticsMonitor(MonitoringSourceConfiguration sourceConfig)
+        private sealed class DiagnosticsMonitor : IAsyncDisposable
         {
-            _sourceConfig = sourceConfig;
-            _stopProcessingSource = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
-        }
+            private readonly MonitoringSourceConfiguration _sourceConfig;
+            private readonly TaskCompletionSource<object> _stopProcessingSource;
+            private readonly object _lock = new object();
+            private Task _currentTask;
+            private bool _disposed;
 
-        public Task CurrentProcessingTask => _currentTask;
+            public DiagnosticsMonitor(MonitoringSourceConfiguration sourceConfig)
+            {
+                _sourceConfig = sourceConfig;
+                _stopProcessingSource = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+
+            public Task CurrentProcessingTask => _currentTask;
 
         public Task<Stream> ProcessEvents(DiagnosticsClient client, TimeSpan duration, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            lock (_lock)
-            {
-                if (_disposed)
+                lock (_lock)
                 {
-                    throw new ObjectDisposedException(nameof(DiagnosticsMonitor));
-                }
+                    if (_disposed)
+                    {
+                        throw new ObjectDisposedException(nameof(DiagnosticsMonitor));
+                    }
 
-                if (_currentTask != null)
-                {
-                    throw new InvalidOperationException("Only one stream processing is allowed");
-                }
+                    if (_currentTask != null)
+                    {
+                        throw new InvalidOperationException("Only one stream processing is allowed");
+                    }
 
                 EventPipeSession session = null;
                 try
@@ -69,45 +71,45 @@ namespace Microsoft.Diagnostics.Monitoring
                     StopSession(session);
                 });
 
-                return Task.FromResult(session.EventStream);
+                    return Task.FromResult(session.EventStream);
+                }
             }
-        }
 
         public void StopProcessing()
         {
             _stopProcessingSource.TrySetResult(null);
         }
 
-        private static void StopSession(EventPipeSession session)
-        {
-            try
+            private static void StopSession(EventPipeSession session)
             {
-                session.Stop();
+                try
+                {
+                    session.Stop();
+                }
+                catch (EndOfStreamException)
+                {
+                    // If the app we're monitoring exits abruptly, this may throw in which case we just swallow the exception and exit gracefully.
+                }
+                // We may time out if the process ended before we sent StopTracing command. We can just exit in that case.
+                catch (TimeoutException)
+                {
+                }
+                // On Unix platforms, we may actually get a PNSE since the pipe is gone with the process, and Runtime Client Library
+                // does not know how to distinguish a situation where there is no pipe to begin with, or where the process has exited
+                // before dotnet-counters and got rid of a pipe that once existed.
+                // Since we are catching this in StopMonitor() we know that the pipe once existed (otherwise the exception would've 
+                // been thrown in StartMonitor directly)
+                catch (PlatformNotSupportedException)
+                {
+                }
             }
-            catch (EndOfStreamException)
-            {
-                // If the app we're monitoring exits abruptly, this may throw in which case we just swallow the exception and exit gracefully.
-            }
-            // We may time out if the process ended before we sent StopTracing command. We can just exit in that case.
-            catch (TimeoutException)
-            {
-            }
-            // On Unix platforms, we may actually get a PNSE since the pipe is gone with the process, and Runtime Client Library
-            // does not know how to distinguish a situation where there is no pipe to begin with, or where the process has exited
-            // before dotnet-counters and got rid of a pipe that once existed.
-            // Since we are catching this in StopMonitor() we know that the pipe once existed (otherwise the exception would've 
-            // been thrown in StartMonitor directly)
-            catch (PlatformNotSupportedException)
-            {
-            }
-        }
 
-        public async ValueTask DisposeAsync()
-        {
-            if (_disposed)
+            public async ValueTask DisposeAsync()
             {
-                return;
-            }
+                if (_disposed)
+                {
+                    return;
+                }
 
             Task currentTask = null;
             lock (_lock)
@@ -131,6 +133,6 @@ namespace Microsoft.Diagnostics.Monitoring
                 {
                 }
             }
-        }
+            _stopProcessingSource?.Dispose();
     }
 }

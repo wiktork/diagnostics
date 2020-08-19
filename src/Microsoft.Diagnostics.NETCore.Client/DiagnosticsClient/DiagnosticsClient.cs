@@ -31,6 +31,8 @@ namespace Microsoft.Diagnostics.NETCore.Client
             _endpoint = endpoint;
         }
 
+        public int Pid => _processId;
+
         /// <summary>
         /// Wait for an available diagnostic endpoint to the runtime instance.
         /// </summary>

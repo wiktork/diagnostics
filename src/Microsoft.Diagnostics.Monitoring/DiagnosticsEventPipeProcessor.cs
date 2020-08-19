@@ -23,10 +23,11 @@ namespace Microsoft.Diagnostics.Monitoring
         Logs = 1,
         Metrics,
         GCDump,
-        ProcessInfo
+        ProcessInfo,
+        Nettrace,
     }
 
-    public class DiagnosticsEventPipeProcessor : IAsyncDisposable
+    public partial class DiagnosticsEventPipeProcessor : IAsyncDisposable
     {
         private readonly MemoryGraph _gcGraph;
         private readonly ILoggerFactory _loggerFactory;
@@ -35,16 +36,21 @@ namespace Microsoft.Diagnostics.Monitoring
         private readonly int _metricIntervalSeconds;
         private readonly LogLevel _logsLevel;
         private readonly Action<string> _processInfoCallback;
+        private readonly MonitoringSourceConfiguration _userConfig;
+        private readonly ITraceStreamOutput _streamOutput;
+        private readonly Action<string> _processInfoCallback;
+
 
         public DiagnosticsEventPipeProcessor(
             PipeMode mode,
-            ILoggerFactory loggerFactory = null,              // PipeMode = Logs
-            LogLevel logsLevel = LogLevel.Debug,              // PipeMode = Logs
-            IEnumerable<IMetricsLogger> metricLoggers = null, // PipeMode = Metrics
-            int metricIntervalSeconds = 10,                   // PipeMode = Metrics
-            MemoryGraph gcGraph = null,                       // PipeMode = GCDump
-            Action<string> processInfoCallback = null         // PipeMode = ProcessInfo
-            )
+            ILoggerFactory loggerFactory = null,                // PipeMode = Logs
+            LogLevel logsLevel = LogLevel.Debug,                // PipeMode = Logs
+            IEnumerable<IMetricsLogger> metricLoggers = null,   // PipeMode = Metrics
+            int metricIntervalSeconds = 10,                     // PipeMode = Metrics
+            MemoryGraph gcGraph = null,                         // PipeMode = GCDump
+            Action<string> processInfoCallback = null,          // PipeMode = ProcessInfo
+            MonitoringSourceConfiguration configuration = null, // PipeMode = Nettrace
+            ITraceStreamOutput streamOutput = null)             // PipeMode = Nettrace
         {
             _metricLoggers = metricLoggers ?? Enumerable.Empty<IMetricsLogger>();
             _mode = mode;
@@ -52,6 +58,9 @@ namespace Microsoft.Diagnostics.Monitoring
             _gcGraph = gcGraph;
             _metricIntervalSeconds = metricIntervalSeconds;
             _logsLevel = logsLevel;
+            _processInfoCallback = processInfoCallback;
+            _userConfig = configuration;
+            _streamOutput = streamOutput;
             _processInfoCallback = processInfoCallback;
         }
 
@@ -69,11 +78,11 @@ namespace Microsoft.Diagnostics.Monitoring
                     {
                         config = new LoggingSourceConfiguration(_logsLevel);
                     }
-                    if (_mode == PipeMode.Metrics)
+                    else if (_mode == PipeMode.Metrics)
                     {
                         config = new MetricSourceConfiguration(_metricIntervalSeconds);
                     }
-                    if (_mode == PipeMode.GCDump)
+                    else if (_mode == PipeMode.GCDump)
                     {
                         config = new GCDumpSourceConfiguration();
                     }
@@ -81,9 +90,21 @@ namespace Microsoft.Diagnostics.Monitoring
                     {
                         config = new SampleProfilerConfiguration();
                     }
+                    else if (_mode == PipeMode.Nettrace)
+                    {
+                        config = _userConfig;
+                    }
 
                     monitor = new DiagnosticsMonitor(config);
                     Stream sessionStream = await monitor.ProcessEvents(client, duration, token);
+
+                    if (_mode == PipeMode.Nettrace)
+                    {
+                        //Await the callee, then cleanup the stream;
+                        await _streamOutput.EventStreamAvailable(sessionStream, token);
+                        return;
+                    }
+
                     source = new EventPipeEventSource(sessionStream);
 
                     // Allows the event handling routines to stop processing before the duration expires.
@@ -104,7 +125,13 @@ namespace Microsoft.Diagnostics.Monitoring
                     if (_mode == PipeMode.GCDump)
                     {
                         // GC
-                        handleEventsTask = HandleGCEvents(source, pid, stopFunc, token);
+                        handleEventsTask = HandleGCEvents(source, client.Pid, stopFunc, token);
+                    }
+
+                    if (_mode == PipeMode.ProcessInfo)
+                    {
+                        // ProcessInfo
+                        HandleProcessInfo(source, stopFunc, token);
                     }
 
                     if (_mode == PipeMode.ProcessInfo)
