@@ -14,7 +14,7 @@ namespace Microsoft.Diagnostics.Tools.Counters.Exporters
     /// ConsoleWriter is an implementation of ICounterRenderer for rendering the counter values in real-time
     /// to the console. This is the renderer for the `dotnet-counters monitor` command.
     /// </summary>
-    public class ConsoleWriter : IEventPipeCounterPipelineOutput
+    public class ConsoleWriter : IEventPipeCounterPipelineOutput, IMetricsLogger
     {
         /// <summary>Information about an observed provider.</summary>
         private class ObservedProvider
@@ -46,6 +46,7 @@ namespace Microsoft.Diagnostics.Tools.Counters.Exporters
         private int STATUS_ROW; // Row # of where we print the status of dotnet-counters
         private bool paused = false;
         private bool initialized = false;
+        private bool _first = true;
 
         public void PipelineStarted()
         {
@@ -135,6 +136,21 @@ namespace Microsoft.Diagnostics.Tools.Counters.Exporters
         {
             paused = true;
             UpdateStatus();
+        }
+
+        public void LogMetrics(Metric metric)
+        {
+            if (_first)
+            {
+                PipelineStarted();
+                _first = false;
+            }
+            CounterPayloadReceived(metric.Namespace, metric);
+        }
+
+        public void Dispose()
+        {
+            PipelineStopped();
         }
     }
 }

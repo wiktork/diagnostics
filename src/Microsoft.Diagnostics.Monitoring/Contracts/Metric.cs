@@ -64,22 +64,22 @@ namespace Microsoft.Diagnostics.Monitoring
 
         public string GetCounterType()
         {
-            throw new NotImplementedException();
+            return "Metric";
         }
 
         public string GetDisplay()
         {
-            throw new NotImplementedException();
+            return DisplayName;
         }
 
         public string GetName()
         {
-            throw new NotImplementedException();
+            return Name;
         }
 
         public double GetValue()
         {
-            throw new NotImplementedException();
+            return Value;
         }
     }
 }

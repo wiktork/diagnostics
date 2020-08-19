@@ -9,12 +9,13 @@ using System.Text;
 
 namespace Microsoft.Diagnostics.Monitoring
 {
-    public class CounterJsonStreamExporter : IEventPipeCounterPipelineOutput
+    public class CounterJsonStreamExporter : IEventPipeCounterPipelineOutput, IMetricsLogger
     {
         private string _processName;
         private StringBuilder builder;
         private int flushLength = 10_000; // Arbitrary length to flush
         private StreamWriter _outputWriter;
+        private bool _first = true;
 
         public CounterJsonStreamExporter(Stream outputStream, string processName)
         {
@@ -54,6 +55,22 @@ namespace Microsoft.Diagnostics.Monitoring
             _outputWriter.Write(builder.ToString());
             _outputWriter.Flush();
             builder.Clear();
+        }
+
+        public void LogMetrics(Metric metric)
+        {
+            if (_first)
+            {
+                PipelineStarted();
+                _first = false;
+            }
+
+            CounterPayloadReceived(metric.Namespace, metric);
+        }
+
+        public void Dispose()
+        {
+            FlushToStream();
         }
     }
 }
