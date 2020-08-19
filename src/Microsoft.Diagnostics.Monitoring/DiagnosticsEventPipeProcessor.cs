@@ -35,6 +35,7 @@ namespace Microsoft.Diagnostics.Monitoring
         private readonly IEnumerable<IMetricsLogger> _metricLoggers;
         private readonly PipeMode _mode;
         private readonly int _metricIntervalSeconds;
+        private readonly CounterFilter _counterFilter;
         private readonly LogLevel _logsLevel;
         private readonly Action<string> _processInfoCallback;
         private readonly MonitoringSourceConfiguration _userConfig;
@@ -46,6 +47,7 @@ namespace Microsoft.Diagnostics.Monitoring
             LogLevel logsLevel = LogLevel.Debug,                // PipeMode = Logs
             IEnumerable<IMetricsLogger> metricLoggers = null,   // PipeMode = Metrics
             int metricIntervalSeconds = 10,                     // PipeMode = Metrics
+            CounterFilter metricFilter = null,                  // PipeMode = Metrics
             MemoryGraph gcGraph = null,                         // PipeMode = GCDump
             Action<string> processInfoCallback = null,          // PipeMode = ProcessInfo
             MonitoringSourceConfiguration configuration = null, // PipeMode = Nettrace
@@ -61,6 +63,7 @@ namespace Microsoft.Diagnostics.Monitoring
             _userConfig = configuration;
             _streamOutput = streamOutput;
             _processInfoCallback = processInfoCallback;
+            _counterFilter = metricFilter;
         }
 
         public async Task Process(DiagnosticsClient client, int pid, TimeSpan duration, CancellationToken token)
@@ -322,8 +325,13 @@ namespace Microsoft.Diagnostics.Monitoring
                             return;
                         }
 
-                        float intervalSec = (float)payloadFields["IntervalSec"];
                         string counterName = payloadFields["Name"].ToString();
+                        if (!_counterFilter.Include(traceEvent.ProviderName, counterName))
+                        {
+                            return;
+                        }
+
+                        float intervalSec = (float)payloadFields["IntervalSec"];
                         string displayName = payloadFields["DisplayName"].ToString();
                         string displayUnits = payloadFields["DisplayUnits"].ToString();
                         double value = 0;

@@ -4,36 +4,43 @@
 
 using System;
 using System.Collections.Generic;
-
+using System.Linq;
 
 namespace Microsoft.Diagnostics.Monitoring
 {
-    internal class CounterFilter
+    public class CounterFilter
     {
-        private List<string> enabledProviders;
-        private Dictionary<string, List<string>> enabledCounters;
+        private Dictionary<string, List<string>> _enabledCounters;
+
+        public static CounterFilter AllCounters { get; } = new CounterFilter();
 
         public CounterFilter()
         {
-            enabledProviders = new List<string>();
-            enabledCounters = new Dictionary<string, List<string>>();
+            _enabledCounters = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         }
 
         // Called when we want to enable all counters under a provider name.
         public void AddFilter(string providerName)
         {
-            enabledProviders.Add(providerName);
+            AddFilter(providerName, Array.Empty<string>());
         }
 
         public void AddFilter(string providerName, string[] counters)
         {
-            enabledCounters[providerName] = new List<string>(counters);
+            _enabledCounters[providerName] = new List<string>(counters);
         }
 
-        public bool Filter(string providerName, string counterName)
+        public bool Include(string providerName, string counterName)
         {
-            return enabledProviders.Contains(providerName) || 
-                (enabledCounters.ContainsKey(providerName) && enabledCounters[providerName].Contains(counterName));
+            if (_enabledCounters.Count == 0)
+            {
+                return true;
+            }
+            if (_enabledCounters.TryGetValue(providerName, out List<string> enabledCounters))
+            {
+                return (enabledCounters.Count == 0) || enabledCounters.Contains(counterName, StringComparer.OrdinalIgnoreCase);
+            }
+            return false;
         }
     }
 }
