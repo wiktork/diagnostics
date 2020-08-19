@@ -81,8 +81,6 @@ namespace Microsoft.Diagnostics.Monitoring
 
             await processor.Process(pi.Client, pi.Pid, Timeout.InfiniteTimeSpan, token);
 
-            await processor.Process(client, Timeout.InfiniteTimeSpan, cancellationToken);
-
             var dumper = new GCHeapDump(graph);
             dumper.CreationTool = "dotnet-monitor";
 
@@ -97,21 +95,18 @@ namespace Microsoft.Diagnostics.Monitoring
         public async Task StartTrace(IProcessInfo pi, MonitoringSourceConfiguration configuration, Stream outputStream, TimeSpan duration, CancellationToken token)
         {
             TraceStreamOutput streamWithCleanup = new TraceStreamOutput(outputStream);
-            DiagnosticsEventPipeProcessor pipeProcessor = new DiagnosticsEventPipeProcessor(PipeMode.Nettrace, configuration: configuration, streamOutput: outputStream);
+            DiagnosticsEventPipeProcessor pipeProcessor = new DiagnosticsEventPipeProcessor(PipeMode.Nettrace, configuration: configuration, streamOutput: streamWithCleanup);
 
-            Func<Task> processData = async () =>
+            Task process = pipeProcessor.Process(pi.Client, pi.Pid, duration, token);
+
+            try
             {
-                Task process = pipeProcessor.Process(pi.Client, pi.Pid, duration, token);
-
-                try
-                {
-                    await process;
-                }
-                finally
-                {
-                    await pipeProcessor.DisposeAsync();
-                }
-            };
+                await process;
+            }
+            finally
+            {
+                await pipeProcessor.DisposeAsync();
+            }
         }
 
         public async Task StartLogs(Stream outputStream, IProcessInfo pi, TimeSpan duration, LogFormat format, LogLevel level, CancellationToken token)
@@ -263,34 +258,33 @@ namespace Microsoft.Diagnostics.Monitoring
 
             public Guid Uid { get; }
         }
-    }
-
-    private sealed class ProcessInfo : IProcessInfo
-    {
-        public ProcessInfo(DiagnosticsClient client, Guid uid, int pid)
+        private sealed class ProcessInfo : IProcessInfo
         {
-            Client = client;
-            Pid = pid;
-            Uid = uid;
-        }
-
-        public static ProcessInfo FromEndpointInfo(IEndpointInfo endpointInfo)
-        {
-            if (null == endpointInfo)
+            public ProcessInfo(DiagnosticsClient client, Guid uid, int pid)
             {
-                throw new ArgumentNullException(nameof(endpointInfo));
+                Client = client;
+                Pid = pid;
+                Uid = uid;
             }
 
-            return new ProcessInfo(
-                new DiagnosticsClient(endpointInfo.Endpoint),
-                endpointInfo.RuntimeInstanceCookie,
-                endpointInfo.ProcessId);
+            public static ProcessInfo FromEndpointInfo(IEndpointInfo endpointInfo)
+            {
+                if (null == endpointInfo)
+                {
+                    throw new ArgumentNullException(nameof(endpointInfo));
+                }
+
+                return new ProcessInfo(
+                    new DiagnosticsClient(endpointInfo.Endpoint),
+                    endpointInfo.RuntimeInstanceCookie,
+                    endpointInfo.ProcessId);
+            }
+
+            public DiagnosticsClient Client { get; }
+
+            public int Pid { get; }
+
+            public Guid Uid { get; }
         }
-
-        public DiagnosticsClient Client { get; }
-
-        public int Pid { get; }
-
-        public Guid Uid { get; }
     }
 }

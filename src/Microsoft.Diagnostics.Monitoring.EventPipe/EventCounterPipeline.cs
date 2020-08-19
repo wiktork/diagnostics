@@ -28,7 +28,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
         protected override Task OnRun(CancellationToken token)
         {
             //TODO Fixup duration; should not always be infinite
-            return _pipeProcessor.Process(_diagnosticsClient, Timeout.InfiniteTimeSpan, token);
+            return _pipeProcessor.Process(_diagnosticsClient, 0, Timeout.InfiniteTimeSpan, token);
         }
 
         protected override Task OnStop(CancellationToken token)
