@@ -6,7 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Microsoft.Diagnostics.Tools.Counters
+namespace Microsoft.Diagnostics.Monitoring
 {
     public interface ICounterPayload
     {
@@ -67,6 +67,8 @@ namespace Microsoft.Diagnostics.Tools.Counters
         public string m_DisplayName;
         public string m_Interval;
         public string m_DisplayUnits;
+        private Dictionary<string, object> payloadFields;
+        private int v;
 
         public IncrementingCounterPayload(IDictionary<string, object> payloadFields, int interval)
         {
@@ -78,6 +80,12 @@ namespace Microsoft.Diagnostics.Tools.Counters
 
             // In case these properties are not provided, set them to appropriate values.
             m_DisplayName = m_DisplayName.Length == 0 ? m_Name : m_DisplayName;
+        }
+
+        public IncrementingCounterPayload(Dictionary<string, object> payloadFields, int v)
+        {
+            this.payloadFields = payloadFields;
+            this.v = v;
         }
 
         public string GetName()

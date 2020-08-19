@@ -98,7 +98,7 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
         {
             TimeSpan duration = ConvertSecondsToTimeSpan(durationSeconds);
 
-            return this.InvokeService(async () =>
+            return this.InvokeService(() =>
             {
                 var configurations = new List<MonitoringSourceConfiguration>();
                 if (profile.HasFlag(TraceProfile.Cpu))
@@ -132,7 +132,7 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
         {
             TimeSpan duration = ConvertSecondsToTimeSpan(durationSeconds);
 
-            return this.InvokeService(async () =>
+            return this.InvokeService(() =>
             {
                 var providers = new List<EventPipeProvider>();
 
@@ -188,14 +188,16 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
             });
         }
 
-        private async Task<StreamWithCleanupResult> StartTrace(
+        private ActionResult StartTrace(
             ProcessFilter? processFilter,
             MonitoringSourceConfiguration configuration,
             TimeSpan duration)
         {
-            IProcessInfo processInfo = await _diagnosticServices.GetProcessAsync(processFilter, HttpContext.RequestAborted);
-            IStreamWithCleanup result = await _diagnosticServices.StartTrace(processInfo, configuration, duration, this.HttpContext.RequestAborted);
-            return new StreamWithCleanupResult(result, "application/octet-stream", FormattableString.Invariant($"{GetFileNameTimeStampUtcNow()}_{processInfo.Pid}.nettrace"));
+            return new OutputStreamResult(async (outputStream, token) =>
+            {
+                IProcessInfo processInfo = await _diagnosticServices.GetProcessAsync(processFilter, HttpContext.RequestAborted);
+                IStreamWithCleanup result = await _diagnosticServices.StartTrace(processInfo, configuration, outputStream, duration, this.HttpContext.RequestAborted);
+            }, "application/octet-stream", FormattableString.Invariant($"{GetFileNameTimeStampUtcNow()}_{processInfo.Pid}.nettrace"));
         }
 
         private static TimeSpan ConvertSecondsToTimeSpan(int durationSeconds)

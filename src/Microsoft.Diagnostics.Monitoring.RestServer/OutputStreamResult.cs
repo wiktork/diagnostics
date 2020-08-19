@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
@@ -35,6 +36,9 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer
                 context.HttpContext.Response.Headers["Content-Disposition"] = contentDispositionHeaderValue.ToString();
             }
             context.HttpContext.Response.Headers["Content-Type"] = _contentType;
+
+            //Needed?
+            //context.HttpContext.Features.Get<IHttpBufferingFeature>().DisableResponseBuffering();
 
             await _action(context.HttpContext.Response.Body, context.HttpContext.RequestAborted);
         }
