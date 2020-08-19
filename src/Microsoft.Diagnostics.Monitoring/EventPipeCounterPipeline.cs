@@ -18,6 +18,8 @@ namespace Microsoft.Diagnostics.Monitoring
         public int ProcessId { get; set; }
         public EventPipeCounterGroup[] CounterGroups { get; set; }
         public TimeSpan RefreshInterval { get; set; }
+
+        public TimeSpan Duration { get; set; }
         public IEventPipeCounterPipelineOutput Output { get; set; }
     }
 
@@ -179,7 +181,7 @@ namespace Microsoft.Diagnostics.Monitoring
                 IDictionary<string, object> payloadFields = (IDictionary<string, object>)(payloadVal["Payload"]);
 
                 // If it's not a counter we asked for, ignore it.
-                if (!filter.Filter(obj.ProviderName, payloadFields["Name"].ToString())) return;
+                if (!filter.Include(obj.ProviderName, payloadFields["Name"].ToString())) return;
 
                 ICounterPayload payload = payloadFields["CounterType"].Equals("Sum") ? 
                     (ICounterPayload)new IncrementingCounterPayload(payloadFields, intervalSecs) :

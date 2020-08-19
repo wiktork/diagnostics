@@ -17,7 +17,7 @@ namespace Microsoft.Diagnostics.Monitoring
         Max
     }
 
-    public class Metric
+    public class Metric : ICounterPayload
     {
         public Metric(DateTime timestamp,
             string metricNamespace,
@@ -61,5 +61,25 @@ namespace Microsoft.Diagnostics.Monitoring
         public DateTime Timestamp { get; }
 
         float Interval { get; }
+
+        public string GetCounterType()
+        {
+            throw new NotImplementedException();
+        }
+
+        public string GetDisplay()
+        {
+            throw new NotImplementedException();
+        }
+
+        public string GetName()
+        {
+            throw new NotImplementedException();
+        }
+
+        public double GetValue()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

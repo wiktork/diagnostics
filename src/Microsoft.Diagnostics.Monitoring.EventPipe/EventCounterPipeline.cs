@@ -4,6 +4,7 @@ using Microsoft.Diagnostics.Tracing.Parsers.MicrosoftWindowsTCPIP;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,22 +21,36 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             EventPipeCounterPipelineSettings settings,
             IEnumerable<IMetricsLogger> metricsLogger)
         {
-            _pipeProcessor = new DiagnosticsEventPipeProcessor(PipeMode.Metrics, metricLoggers: metricsLogger, metricIntervalSeconds: (int)settings.RefreshInterval.TotalSeconds);
+            CounterFilter filter;
+            if (settings.CounterGroups.Length > 0)
+            {
+                filter = new CounterFilter();
+                foreach (var counterGroup in settings.CounterGroups)
+                {
+                    filter.AddFilter(counterGroup.ProviderName, counterGroup.CounterNames);
+                }
+            }
+            else
+            {
+                filter = CounterFilter.AllCounters;
+            }
+
+
+            _pipeProcessor = new DiagnosticsEventPipeProcessor(PipeMode.Metrics, metricLoggers: metricsLogger, metricIntervalSeconds: (int)settings.RefreshInterval.TotalSeconds,
+                metricFilter: filter);
+
             _settings = settings;
             _diagnosticsClient = client;
         }
          
         protected override Task OnRun(CancellationToken token)
         {
-            //TODO Fixup duration; should not always be infinite
-            return _pipeProcessor.Process(_diagnosticsClient, 0, Timeout.InfiniteTimeSpan, token);
+            return _pipeProcessor.Process(_diagnosticsClient, 0, _settings.Duration, token);
         }
 
         protected override Task OnStop(CancellationToken token)
         {
-            //TODO Stop apis on EventPipeEventSource.
             return Task.CompletedTask;
-           
         }
 
         protected override async ValueTask OnDispose()

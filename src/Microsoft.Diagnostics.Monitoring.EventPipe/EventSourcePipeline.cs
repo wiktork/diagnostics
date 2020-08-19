@@ -19,20 +19,5 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
         protected override void OnAbort()
         {
         }
-
-        protected override Task OnRun(CancellationToken token)
-        {
-            return Task.CompletedTask;
-        }
-
-        protected override Task OnStop(CancellationToken token)
-        {
-            return Task.CompletedTask;
-        }
-
-        protected override ValueTask OnDispose()
-        {
-            return base.OnDispose();
-        }
     }
 }

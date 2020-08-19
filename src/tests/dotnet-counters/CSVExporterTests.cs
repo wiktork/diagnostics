@@ -35,8 +35,8 @@ namespace DotnetCounters.UnitTests
         public void IncrementingCounterTest()
         {
             MemoryStream ms = new MemoryStream();
-        	CounterCsvStreamExporter exporter = new CounterCsvStreamExporter(ms);
-            exporter.PipelineStarted();
+            CounterCsvStreamExporter exporter = new CounterCsvStreamExporter(ms);
+            //exporter.PipelineStarted();
             for (int i = 0; i < 100; i++)
             {
                 exporter.CounterPayloadReceived("myProvider", TestHelpers.GenerateCounterPayload(true, "incrementingCounterOne", i, 1, "Incrementing Counter One: " + i.ToString()));
