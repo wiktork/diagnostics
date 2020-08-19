@@ -36,7 +36,7 @@ namespace Microsoft.Diagnostics.Monitoring
         void PipelineStopped();
     }
 
-    public class EventPipeCounterPipeline : IPipeline
+    internal class EventPipeCounterPipeline : IPipeline
     {
         EventPipeCounterPipelineSettings _settings;
 

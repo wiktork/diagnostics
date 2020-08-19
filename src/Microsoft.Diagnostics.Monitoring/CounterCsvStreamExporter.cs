@@ -14,7 +14,7 @@ namespace Microsoft.Diagnostics.Monitoring
         private StringBuilder builder;
         private int flushLength = 10_000; // Arbitrary length to flush
         private StreamWriter _outputWriter;
-        private bool _firstOutput;
+        private bool _firstOutput = true;
 
         public CounterCsvStreamExporter(Stream outputStream)
         {

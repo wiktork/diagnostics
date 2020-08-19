@@ -17,6 +17,7 @@ using Microsoft.Diagnostics.Tools.Counters.Exporters;
 using Microsoft.Internal.Common.Utils;
 using Microsoft.Diagnostics.Monitoring;
 using Microsoft.Diagnostics.Monitoring.Contracts;
+using Microsoft.Diagnostics.Monitoring.EventPipe;
 
 namespace Microsoft.Diagnostics.Tools.Counters
 {
@@ -42,7 +43,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
             {
                 EventPipeCounterPipelineSettings settings = BuildSettings(processId, counter_list, refreshInterval, console);
                 settings.Output = new ConsoleWriter();
-                await RunUILoop(settings, allowPause: true, ct);
+                await RunUILoop(settings, allowPause: true, new ConsoleWriter(), ct);
             });
         }
 
@@ -72,7 +73,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                 }
 
                 string extension = null;
-                Func<Stream, IEventPipeCounterPipelineOutput> exporterFactory = null;
+                Func<Stream, IMetricsLogger> exporterFactory = null;
                 if (format == CountersExportFormat.csv)
                 {
                     extension = ".csv";
@@ -103,10 +104,10 @@ namespace Microsoft.Diagnostics.Tools.Counters
                 }
                 using(Stream outputStream = File.Create(filePath))
                 {
-                    settings.Output = exporterFactory(outputStream);
+                    IMetricsLogger logger = exporterFactory(outputStream);
 
                     Console.WriteLine("Starting a counter session. Press Q to quit.");
-                    await RunUILoop(settings, allowPause: false, ct);
+                    await RunUILoop(settings, allowPause: false, logger, ct);
                     Console.WriteLine("File saved to " + filePath);
                 }
             });
@@ -181,9 +182,9 @@ namespace Microsoft.Diagnostics.Tools.Counters
         }
         
 
-        private static async Task RunUILoop(EventPipeCounterPipelineSettings settings, bool allowPause, CancellationToken ct)
+        private static async Task RunUILoop(EventPipeCounterPipelineSettings settings, bool allowPause, IMetricsLogger output, CancellationToken ct)
         {
-            EventPipeCounterPipeline pipeline = new EventPipeCounterPipeline(settings);
+            EventCounterPipeline pipeline = new EventCounterPipeline(new DiagnosticsClient(settings.ProcessId), settings, new IMetricsLogger[] { output });
             while(true)
             {
                 Task<ConsoleKey> keyTask = PollForNextKeypress(ct);
@@ -210,7 +211,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                         }
                         else if(key == ConsoleKey.R && pipeline == null)
                         {
-                            pipeline = new EventPipeCounterPipeline(settings);
+                            pipeline = new EventCounterPipeline(new DiagnosticsClient(settings.ProcessId), settings, new IMetricsLogger[] { output });
                         }
                     }
                     catch(TaskCanceledException)
