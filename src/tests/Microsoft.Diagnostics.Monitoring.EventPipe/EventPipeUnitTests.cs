@@ -30,13 +30,20 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.UnitTests
 
         private sealed class TestMetricsLogger : IMetricsLogger
         {
+            private readonly ITestOutputHelper _output;
+
+            public TestMetricsLogger(ITestOutputHelper output)
+            {
+                _output = output;
+            }
+
             public void Dispose()
             {
             }
 
             public void LogMetrics(Metric metric)
             {
-                Console.WriteLine(metric.Name);
+                _output.WriteLine(metric.Name);
             }
         }
 
@@ -63,7 +70,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.UnitTests
                     ProcessId = testExecution.TestRunner.Pid,
                     RefreshInterval = TimeSpan.FromSeconds(1)
                 },
-                new IMetricsLogger[]{ new TestMetricsLogger() });
+                new IMetricsLogger[]{ new TestMetricsLogger(_output) });
 
                 Task pipelineTask = pipeline.RunAsync(CancellationToken.None);
 
