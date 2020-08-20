@@ -29,22 +29,6 @@ namespace Microsoft.Diagnostics.Monitoring
 
         public void CounterPayloadReceived(string providerName, ICounterPayload payload)
         {
-           
-        }
-
-        public void PipelineStopped()
-        {
-        }
-
-        private void FlushToStream()
-        {
-            _outputWriter.Write(builder.ToString());
-            _outputWriter.Flush();
-            builder.Clear();
-        }
-
-        public void LogMetrics(Metric metric)
-        {
             if (_firstOutput)
             {
                 builder = new StringBuilder();
@@ -57,10 +41,27 @@ namespace Microsoft.Diagnostics.Monitoring
                 FlushToStream();
             }
             builder.Append(DateTime.UtcNow.ToString() + ",");
-            builder.Append(metric.Namespace + ",");
-            builder.Append(metric.DisplayName + ",");
-            builder.Append(metric.MetricType + ",");
-            builder.Append(metric.Value + "\n");
+            builder.Append(providerName + ",");
+            builder.Append(payload.GetDisplay() + ",");
+            builder.Append(payload.GetCounterType() + ",");
+            builder.Append(payload.GetValue() + "\n");
+        }
+
+        public void PipelineStopped()
+        {
+            FlushToStream();
+        }
+
+        private void FlushToStream()
+        {
+            _outputWriter.Write(builder.ToString());
+            _outputWriter.Flush();
+            builder.Clear();
+        }
+
+        public void LogMetrics(Metric metric)
+        {
+            CounterPayloadReceived(metric.Namespace, metric);
         }
 
         public void Dispose()
