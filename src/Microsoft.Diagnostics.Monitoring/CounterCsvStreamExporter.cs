@@ -9,7 +9,7 @@ using System.Text;
 
 namespace Microsoft.Diagnostics.Monitoring
 {
-    public class CounterCsvStreamExporter : IMetricsLogger, IEventPipeCounterPipelineOutput
+    public class CounterCsvStreamExporter : IMetricsLogger
     {
         private StringBuilder builder;
         private int flushLength = 10_000; // Arbitrary length to flush

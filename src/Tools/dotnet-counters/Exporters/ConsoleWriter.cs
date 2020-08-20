@@ -14,7 +14,7 @@ namespace Microsoft.Diagnostics.Tools.Counters.Exporters
     /// ConsoleWriter is an implementation of ICounterRenderer for rendering the counter values in real-time
     /// to the console. This is the renderer for the `dotnet-counters monitor` command.
     /// </summary>
-    public class ConsoleWriter : IEventPipeCounterPipelineOutput, IMetricsLogger
+    public class ConsoleWriter : IMetricsLogger
     {
         /// <summary>Information about an observed provider.</summary>
         private class ObservedProvider

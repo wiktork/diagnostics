@@ -42,7 +42,6 @@ namespace Microsoft.Diagnostics.Tools.Counters
             return await HandleExceptions(console, async () =>
             {
                 EventPipeCounterPipelineSettings settings = BuildSettings(processId, counter_list, refreshInterval, console);
-                settings.Output = new ConsoleWriter();
                 await RunUILoop(settings, allowPause: true, new ConsoleWriter(), ct);
             });
         }

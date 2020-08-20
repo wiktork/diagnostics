@@ -9,12 +9,12 @@ using System.Threading.Tasks;
 using Microsoft.Diagnostics.NETCore.Client;
 using Xunit.Abstractions;
 
-namespace DotnetMonitor.UnitTests
+namespace Microsoft.Diagnostics.NETCore.Client.UnitTests
 {
     /// <summary>
     /// Utility class to control remote test execution.
     /// </summary>
-    internal sealed class RemoteTestExecution : IAsyncDisposable
+    public sealed class RemoteTestExecution : IAsyncDisposable
     {
         private Task IoReadingTask { get; }
 
