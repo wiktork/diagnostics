@@ -9,7 +9,7 @@ using System.Text;
 
 namespace Microsoft.Diagnostics.Monitoring
 {
-    public class CounterJsonStreamExporter : IEventPipeCounterPipelineOutput, IMetricsLogger
+    public class CounterJsonStreamExporter : IMetricsLogger
     {
         private string _processName;
         private StringBuilder builder;
