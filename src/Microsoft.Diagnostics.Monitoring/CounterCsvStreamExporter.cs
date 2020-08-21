@@ -54,9 +54,12 @@ namespace Microsoft.Diagnostics.Monitoring
 
         private void FlushToStream()
         {
-            _outputWriter.Write(builder.ToString());
-            _outputWriter.Flush();
-            builder.Clear();
+            if (builder != null)
+            {
+                _outputWriter.Write(builder.ToString());
+                _outputWriter.Flush();
+                builder.Clear();
+            }
         }
 
         public void LogMetrics(Metric metric)
