@@ -1,17 +1,8 @@
-﻿using Microsoft.Diagnostics.Monitoring.Contracts;
-using Microsoft.Diagnostics.NETCore.Client;
-using Microsoft.Diagnostics.Tracing;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Diagnostics.Tracing;
-using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
-namespace Microsoft.Diagnostics.Monitoring
+namespace Microsoft.Diagnostics.Monitoring.EventPipe
 {
     public class EventPipeCounterPipelineSettings
     {

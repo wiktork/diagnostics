@@ -14,6 +14,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Diagnostics.Monitoring.Contracts;
+using Microsoft.Diagnostics.Monitoring.EventPipe;
 using Microsoft.Diagnostics.Monitoring.RestServer.Models;
 using Microsoft.Diagnostics.Monitoring.RestServer.Validation;
 using Microsoft.Diagnostics.NETCore.Client;
@@ -195,8 +197,25 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
         {
             return new OutputStreamResult(async (outputStream, token) =>
             {
-                IProcessInfo processInfo = await _diagnosticServices.GetProcessAsync(processFilter, HttpContext.RequestAborted);
-                 await _diagnosticServices.StartTrace(processInfo, configuration, outputStream, duration, this.HttpContext.RequestAborted);
+                IProcessInfo processInfo = await _diagnosticServices.GetProcessAsync(processFilter, token);
+
+                TraceStreamOutput streamWithCleanup = new TraceStreamOutput(outputStream);
+
+                EventTracePipeline pipeProcessor = new EventTracePipeline(processInfo.Client, new EventTracePipelineSettings
+                {
+                    Configuration = configuration,
+                    Duration = duration,
+                    ProcessId = processInfo.Pid
+                }, streamWithCleanup);
+
+                try
+                {
+                    await pipeProcessor.RunAsync(token);
+                }
+                finally
+                {
+                    await pipeProcessor.DisposeAsync();
+                }
             }, "application/octet-stream", FormattableString.Invariant($"{GetFileNameTimeStampUtcNow()}_{processFilter.Value.ProcessId}.nettrace"));
         }
 
@@ -236,6 +255,27 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
                 return LogFormat.Json;
             }
             return LogFormat.None;
+        }
+
+        private sealed class TraceStreamOutput : ITraceStreamOutput
+        {
+            private readonly Stream _outputStream;
+
+            public TraceStreamOutput(Stream outputStream)
+            {
+                _outputStream = outputStream;
+            }
+
+            public async Task EventStreamAvailable(Stream eventStream, CancellationToken token)
+            {
+                await eventStream.CopyToAsync(_outputStream, 0x1000, token);
+            }
+
+            public DiagnosticsClient Client { get; }
+
+            public int Pid { get; }
+
+            public Guid Uid { get; }
         }
     }
 }
