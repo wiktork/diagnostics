@@ -15,11 +15,11 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
         private readonly EventTracePipelineSettings _settings;
         private readonly DiagnosticsEventPipeProcessor _pipeProcessor;
 
-        public EventTracePipeline(DiagnosticsClient client, EventTracePipelineSettings settings, ITraceStreamOutput outputStream)
+        public EventTracePipeline(DiagnosticsClient client, EventTracePipelineSettings settings, Func<Stream, CancellationToken, Task> streamAvailable)
         {
             _client = client;
             _settings = settings;
-            _pipeProcessor = new DiagnosticsEventPipeProcessor(PipeMode.Nettrace, configuration: settings.Configuration, streamOutput: outputStream);
+            _pipeProcessor = new DiagnosticsEventPipeProcessor(PipeMode.Nettrace, configuration: settings.Configuration, streamAvailable: streamAvailable);
         }
         
         protected override Task OnRun(CancellationToken token)

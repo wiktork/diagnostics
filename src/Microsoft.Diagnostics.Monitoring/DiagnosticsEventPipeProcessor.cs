@@ -39,7 +39,7 @@ namespace Microsoft.Diagnostics.Monitoring
         private readonly LogLevel _logsLevel;
         private readonly Action<string> _processInfoCallback;
         private readonly MonitoringSourceConfiguration _userConfig;
-        private readonly ITraceStreamOutput _streamOutput;
+        private readonly Func<Stream, CancellationToken, Task> _streamAvailable;
 
         public DiagnosticsEventPipeProcessor(
             PipeMode mode,
@@ -51,7 +51,7 @@ namespace Microsoft.Diagnostics.Monitoring
             MemoryGraph gcGraph = null,                         // PipeMode = GCDump
             Action<string> processInfoCallback = null,          // PipeMode = ProcessInfo
             MonitoringSourceConfiguration configuration = null, // PipeMode = Nettrace
-            ITraceStreamOutput streamOutput = null)             // PipeMode = Nettrace
+            Func<Stream, CancellationToken, Task> streamAvailable = null)             // PipeMode = Nettrace
         {
             _metricLoggers = metricLoggers ?? Enumerable.Empty<IMetricsLogger>();
             _mode = mode;
@@ -61,7 +61,7 @@ namespace Microsoft.Diagnostics.Monitoring
             _logsLevel = logsLevel;
             _processInfoCallback = processInfoCallback;
             _userConfig = configuration;
-            _streamOutput = streamOutput;
+            _streamAvailable = streamAvailable;
             _processInfoCallback = processInfoCallback;
             _counterFilter = metricFilter;
         }
@@ -103,7 +103,7 @@ namespace Microsoft.Diagnostics.Monitoring
                     if (_mode == PipeMode.Nettrace)
                     {
                         //Await the callee, then cleanup the stream;
-                        await _streamOutput.EventStreamAvailable(sessionStream, token);
+                        await _streamAvailable(sessionStream, token);
                         return;
                     }
 
