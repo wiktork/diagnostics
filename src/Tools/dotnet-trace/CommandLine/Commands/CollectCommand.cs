@@ -2,6 +2,8 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using Microsoft.Diagnostics.Monitoring;
+using Microsoft.Diagnostics.Monitoring.EventPipe;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.Internal.Common.Utils;
 using Microsoft.Tools.Common;
@@ -135,10 +137,18 @@ namespace Microsoft.Diagnostics.Tools.Trace
                 var diagnosticsClient = new DiagnosticsClient(processId);
                 using (VirtualTerminalMode vTermMode = VirtualTerminalMode.TryEnable())
                 {
+                    var settings = new EventTracePipelineSettings
+                    {
+                        Configuration = new EventPipeProviderSourceConfiguration(requestRundown: true, bufferSizeInMB: (int)buffersize, providers: providerCollection.ToArray()),
+                        Duration = duration,
+                        ProcessId = processId
+                    };
+
+                    EventTracePipeline pipeline = new EventTracePipeline(diagnosticsClient, settings, null);
                     EventPipeSession session = null;
                     try
                     {
-                        session = diagnosticsClient.StartEventPipeSession(providerCollection, true, (int)buffersize);
+                        await pipeline.RunAsync(ct);
                     }
                     catch (DiagnosticsClientException e)
                     {
@@ -151,15 +161,7 @@ namespace Microsoft.Diagnostics.Tools.Trace
                         return ErrorCodes.SessionCreationError;
                     }
 
-                    if (shouldStopAfterDuration)
-                    {
-                        durationTimer = new System.Timers.Timer(duration.TotalMilliseconds);
-                        durationTimer.Elapsed += (s, e) => shouldExit.Set();
-                        durationTimer.AutoReset = false;
-                    }
-
                     var stopwatch = new Stopwatch();
-                    durationTimer?.Start();
                     stopwatch.Start();
 
                     LineRewriter rewriter = null;

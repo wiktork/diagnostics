@@ -201,12 +201,17 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
 
                 TraceStreamOutput streamWithCleanup = new TraceStreamOutput(outputStream);
 
+                Func<Stream, CancellationToken, Task> streamAvailable = async (Stream eventStream, CancellationToken token) =>
+                {
+                    await eventStream.CopyToAsync(outputStream, 0x1000, token);
+                };
+
                 EventTracePipeline pipeProcessor = new EventTracePipeline(processInfo.Client, new EventTracePipelineSettings
                 {
                     Configuration = configuration,
                     Duration = duration,
                     ProcessId = processInfo.Pid
-                }, streamWithCleanup);
+                }, streamAvailable);
 
                 try
                 {

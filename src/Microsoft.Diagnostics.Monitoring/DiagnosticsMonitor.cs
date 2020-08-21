@@ -59,7 +59,7 @@ namespace Microsoft.Diagnostics.Monitoring
                     }
 
                     _currentTask = Task.Run(async () =>
-                   {
+                    {
                        using var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                        linkedSource.CancelAfter(duration);
                        using var _ = linkedSource.Token.Register(() => _stopProcessingSource.TrySetResult(null));
@@ -69,7 +69,7 @@ namespace Microsoft.Diagnostics.Monitoring
                        await _stopProcessingSource.Task.ConfigureAwait(false);
 
                        StopSession(session);
-                   });
+                    });
 
                     return Task.FromResult(session.EventStream);
                 }
