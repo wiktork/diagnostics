@@ -41,7 +41,6 @@ namespace Microsoft.Diagnostics.Tools.Counters
 
             return await HandleExceptions(console, async () =>
             {
-                await Task.Delay(10000);
                 EventPipeCounterPipelineSettings settings = BuildSettings(processId, counter_list, refreshInterval, console);
                 await RunUILoop(settings, allowPause: true, new ConsoleWriter(), ct);
             });
@@ -89,7 +88,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                     }
                     catch (Exception) { }
 
-                    extension = "*.json";
+                    extension = ".json";
                     exporterFactory = s => new CounterJsonStreamExporter(s, processName);
                 }
                 else
@@ -186,14 +185,17 @@ namespace Microsoft.Diagnostics.Tools.Counters
         private static async Task RunUILoop(EventPipeCounterPipelineSettings settings, bool allowPause, IMetricsLogger output, CancellationToken ct)
         {
             EventCounterPipeline pipeline = new EventCounterPipeline(new DiagnosticsClient(settings.ProcessId), settings, new IMetricsLogger[] { output });
+            bool startPipeline = true;
             while(true)
             {
                 Task<ConsoleKey> keyTask = PollForNextKeypress(ct);
                 List<Task> tasks = new List<Task>();
                 tasks.Add(keyTask);
-                if(pipeline != null)
+                
+                if ((pipeline != null) && (startPipeline))
                 {
                     tasks.Add(pipeline.RunAsync(CancellationToken.None));
+                    startPipeline = false;
                 }
                 Task completedTask = await Task.WhenAny(tasks);
                 if(completedTask == keyTask)
@@ -214,6 +216,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                         else if(key == ConsoleKey.R && pipeline == null)
                         {
                             pipeline = new EventCounterPipeline(new DiagnosticsClient(settings.ProcessId), settings, new IMetricsLogger[] { output });
+                            startPipeline = true;
                         }
                     }
                     catch(TaskCanceledException)
@@ -230,7 +233,8 @@ namespace Microsoft.Diagnostics.Tools.Counters
 
             if (pipeline != null)
             {
-                await pipeline.StopAsync(TimeSpan.FromSeconds(1));
+                //await pipeline.StopAsync(TimeSpan.FromSeconds(1));
+                await pipeline.DisposeAsync();
             }
         }
 
