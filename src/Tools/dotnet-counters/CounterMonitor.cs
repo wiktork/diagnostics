@@ -41,6 +41,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
 
             return await HandleExceptions(console, async () =>
             {
+                await Task.Delay(10000);
                 EventPipeCounterPipelineSettings settings = BuildSettings(processId, counter_list, refreshInterval, console);
                 await RunUILoop(settings, allowPause: true, new ConsoleWriter(), ct);
             });
@@ -144,6 +145,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                 throw new CommandLineError("--process-id is required.");
             }
             settings.ProcessId = processId;
+            settings.Duration = Timeout.InfiniteTimeSpan;
             settings.CounterGroups = BuildCounterGroups(counterList, console);
             settings.RefreshInterval = TimeSpan.FromSeconds(refreshInterval);
             return settings;
@@ -205,7 +207,8 @@ namespace Microsoft.Diagnostics.Tools.Counters
                         }
                         else if(key == ConsoleKey.P && allowPause && pipeline != null)
                         {
-                            await pipeline.StopAsync(TimeSpan.FromSeconds(1));
+                            //await pipeline.StopAsync(TimeSpan.FromSeconds(1));
+                            await pipeline.DisposeAsync();
                             pipeline = null;
                         }
                         else if(key == ConsoleKey.R && pipeline == null)

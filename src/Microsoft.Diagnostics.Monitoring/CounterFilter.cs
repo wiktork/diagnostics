@@ -27,7 +27,7 @@ namespace Microsoft.Diagnostics.Monitoring
 
         public void AddFilter(string providerName, string[] counters)
         {
-            _enabledCounters[providerName] = new List<string>(counters);
+            _enabledCounters[providerName] = new List<string>(counters ?? Array.Empty<string>());
         }
 
         public bool Include(string providerName, string counterName)
