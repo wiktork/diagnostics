@@ -92,23 +92,6 @@ namespace Microsoft.Diagnostics.Monitoring
             return stream;
         }
 
-        public async Task StartTrace(IProcessInfo pi, MonitoringSourceConfiguration configuration, Stream outputStream, TimeSpan duration, CancellationToken token)
-        {
-            TraceStreamOutput streamWithCleanup = new TraceStreamOutput(outputStream);
-            DiagnosticsEventPipeProcessor pipeProcessor = new DiagnosticsEventPipeProcessor(PipeMode.Nettrace, configuration: configuration, streamOutput: streamWithCleanup);
-
-            Task process = pipeProcessor.Process(pi.Client, pi.Pid, duration, token);
-
-            try
-            {
-                await process;
-            }
-            finally
-            {
-                await pipeProcessor.DisposeAsync();
-            }
-        }
-
         public async Task StartLogs(Stream outputStream, IProcessInfo pi, TimeSpan duration, LogFormat format, LogLevel level, CancellationToken token)
         {
             using var loggerFactory = new LoggerFactory();
@@ -238,26 +221,6 @@ namespace Microsoft.Diagnostics.Monitoring
         /// any underlying data structures associated with the DiagnosticsMonitor once the caller is done
         /// processing the stream.
         /// </summary>
-        private sealed class TraceStreamOutput : ITraceStreamOutput
-        {
-            private readonly Stream _outputStream;
-
-            public TraceStreamOutput(Stream outputStream)
-            {
-                _outputStream = outputStream;
-            }
-
-            public async Task EventStreamAvailable(Stream eventStream, CancellationToken token)
-            {
-                await eventStream.CopyToAsync(_outputStream, 0x1000, token);
-            }
-
-            public DiagnosticsClient Client { get; }
-
-            public int Pid { get; }
-
-            public Guid Uid { get; }
-        }
         private sealed class ProcessInfo : IProcessInfo
         {
             public ProcessInfo(DiagnosticsClient client, Guid uid, int pid)
