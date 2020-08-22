@@ -199,8 +199,6 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
             {
                 IProcessInfo processInfo = await _diagnosticServices.GetProcessAsync(processFilter, token);
 
-                TraceStreamOutput streamWithCleanup = new TraceStreamOutput(outputStream);
-
                 Func<Stream, CancellationToken, Task> streamAvailable = async (Stream eventStream, CancellationToken token) =>
                 {
                     await eventStream.CopyToAsync(outputStream, 0x1000, token);
@@ -260,27 +258,6 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
                 return LogFormat.Json;
             }
             return LogFormat.None;
-        }
-
-        private sealed class TraceStreamOutput : ITraceStreamOutput
-        {
-            private readonly Stream _outputStream;
-
-            public TraceStreamOutput(Stream outputStream)
-            {
-                _outputStream = outputStream;
-            }
-
-            public async Task EventStreamAvailable(Stream eventStream, CancellationToken token)
-            {
-                await eventStream.CopyToAsync(_outputStream, 0x1000, token);
-            }
-
-            public DiagnosticsClient Client { get; }
-
-            public int Pid { get; }
-
-            public Guid Uid { get; }
         }
     }
 }

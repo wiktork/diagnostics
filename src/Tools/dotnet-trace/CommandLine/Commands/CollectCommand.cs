@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring;
+using Microsoft.Diagnostics.Monitoring.Contracts;
 using Microsoft.Diagnostics.Monitoring.EventPipe;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.Internal.Common.Utils;
@@ -129,6 +130,10 @@ namespace Microsoft.Diagnostics.Tools.Trace
                 var process = Process.GetProcessById(processId);
                 var shouldExit = new ManualResetEvent(false);
                 var shouldStopAfterDuration = duration != default(TimeSpan);
+                if (!shouldStopAfterDuration)
+                {
+                    duration = Timeout.InfiniteTimeSpan;
+                }
                 var rundownRequested = false;
                 System.Timers.Timer durationTimer = null;
 
@@ -137,37 +142,41 @@ namespace Microsoft.Diagnostics.Tools.Trace
                 var diagnosticsClient = new DiagnosticsClient(processId);
                 using (VirtualTerminalMode vTermMode = VirtualTerminalMode.TryEnable())
                 {
-                    var settings = new EventTracePipelineSettings
-                    {
-                        Configuration = new EventPipeProviderSourceConfiguration(requestRundown: true, bufferSizeInMB: (int)buffersize, providers: providerCollection.ToArray()),
-                        Duration = duration,
-                        ProcessId = processId
-                    };
-
-                    EventTracePipeline pipeline = new EventTracePipeline(diagnosticsClient, settings, null);
-                    EventPipeSession session = null;
-                    try
-                    {
-                        await pipeline.RunAsync(ct);
-                    }
-                    catch (DiagnosticsClientException e)
-                    {
-                        Console.Error.WriteLine($"Unable to start a tracing session: {e.ToString()}");
-                    }
-
-                    if (session == null)
-                    {
-                        Console.Error.WriteLine("Unable to create session.");
-                        return ErrorCodes.SessionCreationError;
-                    }
-
                     var stopwatch = new Stopwatch();
-                    stopwatch.Start();
-
                     LineRewriter rewriter = null;
 
                     using (var fs = new FileStream(output.FullName, FileMode.Create, FileAccess.Write))
                     {
+                        var settings = new EventTracePipelineSettings
+                        {
+                            Configuration = new EventPipeProviderSourceConfiguration(requestRundown: true, bufferSizeInMB: (int)buffersize, providers: providerCollection.ToArray()),
+                            Duration = duration,
+                            ProcessId = processId
+                        };
+
+                        Func<Stream, CancellationToken, Task> streamAvailable = (Stream eventStream, CancellationToken token) =>
+                        {
+                            return eventStream.CopyToAsync(fs, token).ContinueWith((task) => shouldExit.Set());
+                        };
+
+                        EventTracePipeline pipeline = new EventTracePipeline(diagnosticsClient, settings, streamAvailable);
+                        EventPipeSession session = null;
+                        try
+                        {
+                            stopwatch.Start();
+                            Task processingTask = pipeline.RunAsync(ct);
+                        }
+                        catch (PipelineException e)
+                        {
+                            Console.Error.WriteLine($"Unable to start a tracing session: {e.ToString()}");
+                        }
+
+                        //if (session == null)
+                        //{
+                        //    Console.Error.WriteLine("Unable to create session.");
+                        //    return ErrorCodes.SessionCreationError;
+                        //}
+
                         Console.Out.WriteLine($"Process        : {process.MainModule.FileName}");
                         Console.Out.WriteLine($"Output File    : {fs.Name}");
                         if (shouldStopAfterDuration)
@@ -175,7 +184,6 @@ namespace Microsoft.Diagnostics.Tools.Trace
                         Console.Out.WriteLine("\n\n");
 
                         var fileInfo = new FileInfo(output.FullName);
-                        Task copyTask = session.EventStream.CopyToAsync(fs).ContinueWith((task) => shouldExit.Set());
 
                         if (!Console.IsOutputRedirected)
                         {
