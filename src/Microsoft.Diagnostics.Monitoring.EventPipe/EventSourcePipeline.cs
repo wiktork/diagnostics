@@ -12,8 +12,18 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
 {
     public abstract class EventSourcePipeline : Pipeline
     {
+        private Lazy<DiagnosticsEventPipeProcessor> _processor;
+
         public EventSourcePipeline()
         {
+            _processor = new Lazy<DiagnosticsEventPipeProcessor>(CreateProcessor);
+        }
+
+        protected abstract DiagnosticsEventPipeProcessor CreateProcessor();
+
+        protected override Task OnRun(CancellationToken token)
+        {
+            _processor.Value.Process()
         }
     }
 }
