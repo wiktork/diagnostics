@@ -160,11 +160,11 @@ namespace Microsoft.Diagnostics.Tools.Trace
                         };
 
                         EventTracePipeline pipeline = new EventTracePipeline(diagnosticsClient, settings, streamAvailable);
-                        EventPipeSession session = null;
+                        Task processingTask = null;
                         try
                         {
                             stopwatch.Start();
-                            Task processingTask = pipeline.RunAsync(ct);
+                            processingTask = pipeline.RunAsync(ct);
                         }
                         catch (PipelineException e)
                         {
@@ -209,7 +209,7 @@ namespace Microsoft.Diagnostics.Tools.Trace
                             printStatus();
 
                         // if the CopyToAsync ended early (target program exited, etc.), the we don't need to stop the session.
-                        if (!copyTask.Wait(0))
+                        if (!processingTask.Wait(0))
                         {
                             // Behavior concerning Enter moving text in the terminal buffer when at the bottom of the buffer
                             // is different between Console/Terminals on Windows and Mac/Linux
@@ -222,12 +222,12 @@ namespace Microsoft.Diagnostics.Tools.Trace
                             }
                             durationTimer?.Stop();
                             rundownRequested = true;
-                            session.Stop();
+                            await pipeline.StopAsync(Timeout.InfiniteTimeSpan);
 
                             do
                             {
                                 printStatus();
-                            } while (!copyTask.Wait(100));
+                            } while (!processingTask.Wait(100));
                         }
                     }
 
