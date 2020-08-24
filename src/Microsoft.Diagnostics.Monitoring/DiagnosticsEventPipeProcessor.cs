@@ -41,6 +41,9 @@ namespace Microsoft.Diagnostics.Monitoring
         private readonly MonitoringSourceConfiguration _userConfig;
         private readonly Func<Stream, CancellationToken, Task> _streamAvailable;
 
+        private EventPipeEventSource _eventPipeSession;
+        private DiagnosticsMonitor _diagnosticsMonitor;
+
         public DiagnosticsEventPipeProcessor(
             PipeMode mode,
             ILoggerFactory loggerFactory = null,                // PipeMode = Logs
@@ -97,8 +100,8 @@ namespace Microsoft.Diagnostics.Monitoring
                         config = _userConfig;
                     }
 
-                    monitor = new DiagnosticsMonitor(config);
-                    Stream sessionStream = await monitor.ProcessEvents(client, duration, token);
+                    _diagnosticsMonitor = new DiagnosticsMonitor(config);
+                    Stream sessionStream = await _diagnosticsMonitor.ProcessEvents(client, duration, token);
 
                     if (_mode == PipeMode.Nettrace)
                     {
@@ -107,7 +110,7 @@ namespace Microsoft.Diagnostics.Monitoring
                         return;
                     }
 
-                    source = new EventPipeEventSource(sessionStream);
+                    _eventPipeSession = new EventPipeEventSource(sessionStream);
 
                     // Allows the event handling routines to stop processing before the duration expires.
                     Func<Task> stopFunc = () => Task.Run(() => { monitor.StopProcessing(); });
@@ -142,8 +145,7 @@ namespace Microsoft.Diagnostics.Monitoring
                         HandleProcessInfo(source, stopFunc, token);
                     }
 
-                    source.Process();
-
+                    _eventPipeSession.Process();
                     token.ThrowIfCancellationRequested();
                 }
                 catch (DiagnosticsClientException ex)
@@ -166,6 +168,18 @@ namespace Microsoft.Diagnostics.Monitoring
                 await handleEventsTask;
 
             }, token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+        }
+
+        public void StopProcessing()
+        {
+            if (_eventPipeSession != null)
+            {
+                _eventPipeSession.StopProcessing();
+            }
+            else if (_diagnosticsMonitor != null)
+            {
+                _diagnosticsMonitor.StopProcessing();
+            }
         }
 
         private void HandleLoggingEvents(EventPipeEventSource source)

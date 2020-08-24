@@ -67,7 +67,6 @@ namespace Microsoft.Diagnostics.Monitoring
                        // Use TaskCompletionSource instead of Task.Delay with cancellation to avoid
                        // using exceptions for normal termination of event stream.
                        await _stopProcessingSource.Task.ConfigureAwait(false);
-
                        StopSession(session);
                     });
 

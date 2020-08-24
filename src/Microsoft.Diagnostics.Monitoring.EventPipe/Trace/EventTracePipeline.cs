@@ -29,6 +29,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
 
         protected override Task OnStop(CancellationToken token)
         {
+            _pipeProcessor.StopProcessing();
             return Task.CompletedTask;
         }
 
