@@ -15,9 +15,5 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
         public EventSourcePipeline()
         {
         }
-
-        protected override void OnAbort()
-        {
-        }
     }
 }

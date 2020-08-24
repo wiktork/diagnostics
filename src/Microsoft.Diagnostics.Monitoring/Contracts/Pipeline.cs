@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,9 +21,12 @@ namespace Microsoft.Diagnostics.Monitoring.Contracts
         }
 
         private readonly CancellationTokenSource _disposeSource = new CancellationTokenSource();
-        private int _state = (int)PipelineState.Unstarted;
+        private object _lock = new object();
+        private PipelineState _state = PipelineState.Unstarted;
+        private Task _runTask;
+        private Task _stopTask;
 
-        protected abstract void OnAbort();
+        protected virtual Task OnAbort() => Task.CompletedTask;
 
         protected abstract Task OnRun(CancellationToken token);
 
@@ -29,77 +34,141 @@ namespace Microsoft.Diagnostics.Monitoring.Contracts
 
         protected virtual ValueTask OnDispose() => default;
 
-        public async Task RunAsync(CancellationToken token)
+        public Task RunAsync(CancellationToken token)
         {
-            TransitionState(PipelineState.Running, allowedOldStates: PipelineState.Unstarted);
-            using (var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(token, _disposeSource.Token))
-            using (var registration = linkedSource.Token.Register(Abort, useSynchronizationContext: false))
+            lock (_lock)
             {
-                await OnRun(linkedSource.Token);
+                ThrowIfDisposed();
+
+                if (_runTask != null)
+                {
+                    return _runTask;
+                }
             }
+
+            Task runTask = RunAsyncCore(token);
+            lock (_lock)
+            {
+                _runTask = runTask;
+            }
+            return _runTask;
         }
 
-        public async Task StopAsync(CancellationToken token = default)
+        private async Task RunAsyncCore(CancellationToken token)
         {
-            TransitionState(PipelineState.Stopping, PipelineState.Unstarted, PipelineState.Running);
             using (var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(token, _disposeSource.Token))
-            using (var registration = linkedSource.Token.Register(Abort, useSynchronizationContext: false))
             {
                 try
                 {
-                    await OnStop(linkedSource.Token);
+                    try
+                    {
+                        TransitionState(PipelineState.Running, true, PipelineState.Unstarted);
+                        await OnRun(linkedSource.Token);
+                    }
+                    finally
+                    {
+                        TransitionState(PipelineState.Stopped, false, PipelineState.Running, PipelineState.Stopping);
+                    }
                 }
-                finally
+                catch (OperationCanceledException)
                 {
-                    TransitionState(PipelineState.Stopped, PipelineState.Stopping);
+                    await Abort();
+                    throw;
                 }
             }
         }
 
-        public void Abort()
+        public Task StopAsync(CancellationToken token = default)
         {
-            //Should this be async?
-            TransitionState(PipelineState.Stopping, PipelineState.Unstarted, PipelineState.Running, PipelineState.Stopping);
-            OnAbort();
-            TransitionState(PipelineState.Stopped, PipelineState.Unstarted, PipelineState.Running, PipelineState.Stopping);
+            lock (_lock)
+            {
+                ThrowIfDisposed();
+                if (_stopTask != null)
+                {
+                    return _stopTask;
+                }
+
+                Task stopTask = StopAsyncCore(token);
+                lock(_lock)
+                {
+                    _stopTask = stopTask;
+                }
+                return _runTask;
+            }
         }
 
-        private void TransitionState(PipelineState newState, params PipelineState[] allowedOldStates)
+        private async Task StopAsyncCore(CancellationToken token)
         {
-            PipelineState? oldState = null;
-            bool transitioned = false;
-
-            foreach(PipelineState allowedOldState in allowedOldStates)
+            using (var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(token, _disposeSource.Token))
             {
-                oldState = (PipelineState)Interlocked.CompareExchange(ref _state, value: (int)newState, comparand: (int)allowedOldState);
-                if (oldState == allowedOldState)
+                try
                 {
-                    transitioned = true;
-                    break;
+                    try
+                    {
+                        TransitionState(PipelineState.Stopping, true, PipelineState.Running);
+                        await OnStop(linkedSource.Token);
+                    }
+                    finally
+                    {
+                        TransitionState(PipelineState.Stopped, false, PipelineState.Stopping);
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    await Abort();
+                    throw;
                 }
             }
+        }
 
-            if (!transitioned)
+        private Task Abort()
+        {
+            return OnAbort();
+        }
+
+        private void TransitionState(PipelineState newState, bool throwOnFailure, params PipelineState[] allowedOldStates)
+        {
+            lock(_lock)
             {
-                throw new PipelineException($"Unexpected state transition from {oldState.Value} to {newState}");
+                if (allowedOldStates.Contains(_state))
+                {
+                    _state = newState;
+                }
+                else if (throwOnFailure)
+                {
+                    throw new PipelineException($"Unable to transition from {_state} to {newState}");
+                }
             }
         }
 
         public async ValueTask DisposeAsync()
         {
-            if (Interlocked.CompareExchange(ref _state, (int)PipelineState.Disposed, (int)PipelineState.Disposed) != (int)PipelineState.Disposed)
+            lock (_lock)
             {
-                _disposeSource.Cancel();
+                if (_state == PipelineState.Disposed)
+                {
+                    return;
+                }
+                _state = PipelineState.Disposed;
+            }
+            _disposeSource.Cancel();
 
-                //TODO Should we await outstanding operations here, or do we push that responsibility to the OnDispose method?
-                try
-                {
-                    await OnDispose();
-                }
-                finally
-                {
-                    _disposeSource.Dispose();
-                }
+            //TODO Should we await outstanding operations here, or do we push that responsibility to the OnDispose method?
+            try
+            {
+                await OnDispose();
+            }
+            finally
+            {
+                _disposeSource.Dispose();
+            }
+        }
+
+        private void ThrowIfDisposed()
+        {
+            if (_state == PipelineState.Disposed)
+            {
+                throw new ObjectDisposedException(GetType().Name);
             }
         }
     }
