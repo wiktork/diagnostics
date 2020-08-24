@@ -63,7 +63,7 @@ namespace Microsoft.Diagnostics.Monitoring.Contracts
         /// RunAsync() to throw a PipelineAbortedException if the pipeline isn't already stopped and there 
         /// is no other exception already being propagated.
         /// </summary>
-        void Abort();
+        //void Abort();
     }
 
     public class PipelineException : Exception
