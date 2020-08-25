@@ -11,7 +11,6 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using FastSerialization;
-using Graphs;
 using Microsoft.Diagnostics.Monitoring.Contracts;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.Diagnostics.Tracing.Parsers.Tpl;

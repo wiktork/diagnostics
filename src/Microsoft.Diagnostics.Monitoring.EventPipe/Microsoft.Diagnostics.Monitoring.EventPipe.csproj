@@ -15,14 +15,6 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
-  <!--<ItemGroup>
-    <Compile Include="..\Tools\dotnet-gcdump\DotNetHeapDump\DotNetHeapDumpGraphReader.cs" Link="DotNetHeapDump\DotNetHeapDumpGraphReader.cs" />
-    <Compile Include="..\Tools\dotnet-gcdump\DotNetHeapDump\DotNetHeapInfo.cs" Link="DotNetHeapDump\DotNetHeapInfo.cs" />
-    <Compile Include="..\Tools\dotnet-gcdump\DotNetHeapDump\GCHeapDump.cs" Link="DotNetHeapDump\GCHeapDump.cs" />
-    <Compile Include="..\Tools\dotnet-gcdump\DotNetHeapDump\Graph.cs" Link="DotNetHeapDump\Graph.cs" />
-    <Compile Include="..\Tools\dotnet-gcdump\DotNetHeapDump\MemoryGraph.cs" Link="DotNetHeapDump\MemoryGraph.cs" />
-  </ItemGroup>-->
-
   <ItemGroup>
     <!--<PackageReference Include="Microsoft.Bcl.HashCode" Version="$(MicrosoftBclHashCodeVersion)" />-->
     <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="$(MicrosoftDiagnosticsTracingTraceEventVersion)" />
