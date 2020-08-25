@@ -42,20 +42,4 @@ namespace Microsoft.Diagnostics.Monitoring
         WithHeap,
         Triage
     }
-
-    public enum LogFormat
-    {
-        None = 0,
-        Json = 1,
-        EventStream = 2
-    }
-
-    [Flags]
-    public enum TraceProfile
-    {
-        Cpu =     0x1,
-        Http =    0x2,
-        Logs =    0x4,
-        Metrics = 0x8
-    }
 }

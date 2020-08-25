@@ -17,7 +17,7 @@ namespace Microsoft.Diagnostics.Monitoring
     }
 
 
-    class CounterPayload : ICounterPayload
+    public class CounterPayload : ICounterPayload
     {
         public string m_Name;
         public double m_Value;
@@ -60,7 +60,7 @@ namespace Microsoft.Diagnostics.Monitoring
         }
     }
 
-    class IncrementingCounterPayload : ICounterPayload
+    public class IncrementingCounterPayload : ICounterPayload
     {
         public string m_Name;
         public double m_Value;
