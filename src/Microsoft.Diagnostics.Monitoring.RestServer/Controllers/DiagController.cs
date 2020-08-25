@@ -86,8 +86,34 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
             return this.InvokeService(async () =>
             {
                 IProcessInfo processInfo = await _diagnosticServices.GetProcessAsync(processFilter, HttpContext.RequestAborted);
-                Stream result = await _diagnosticServices.GetGcDump(processInfo, this.HttpContext.RequestAborted);
-                return File(result, "application/octet-stream", FormattableString.Invariant($"{GetFileNameTimeStampUtcNow()}_{processInfo.Pid}.gcdump"));
+
+                var graph = new Graphs.MemoryGraph(50_000);
+
+                EventGCPipelineSettings settings = new EventGCPipelineSettings
+                {
+                    Duration = Timeout.InfiniteTimeSpan,
+                    ProcessId = processInfo.Pid
+                };
+                EventGCPipeline pipeline = new EventGCPipeline(processInfo.Client, settings, graph);
+                
+                try
+                {
+                    await pipeline.RunAsync(HttpContext.RequestAborted);
+                    var dumper = new GCHeapDump(graph);
+                    dumper.CreationTool = "dotnet-monitor";
+
+                    var stream = new MemoryStream();
+                    var serializer = new FastSerialization.Serializer(stream, dumper, leaveOpen: true);
+                    serializer.Close();
+
+                    stream.Position = 0;
+
+                    return File(stream, "application/octet-stream", FormattableString.Invariant($"{GetFileNameTimeStampUtcNow()}_{processInfo.Pid}.gcdump"));
+                }
+                finally
+                {
+                    await pipeline.DisposeAsync();
+                }
             });
         }
 

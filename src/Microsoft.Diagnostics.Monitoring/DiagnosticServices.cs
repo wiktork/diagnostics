@@ -72,26 +72,6 @@ namespace Microsoft.Diagnostics.Monitoring
             return new AutoDeleteFileStream(dumpFilePath);
         }
 
-        public async Task<Stream> GetGcDump(IProcessInfo pi, CancellationToken token)
-        {
-            var graph = new MemoryGraph(50_000);
-            await using var processor = new DiagnosticsEventPipeProcessor(
-                PipeMode.GCDump,
-                gcGraph: graph);
-
-            await processor.Process(pi.Client, pi.Pid, Timeout.InfiniteTimeSpan, token);
-
-            var dumper = new GCHeapDump(graph);
-            dumper.CreationTool = "dotnet-monitor";
-
-            var stream = new MemoryStream();
-            var serializer = new Serializer(stream, dumper, leaveOpen: true);
-            serializer.Close();
-
-            stream.Position = 0;
-            return stream;
-        }
-
         public async Task StartLogs(Stream outputStream, IProcessInfo pi, TimeSpan duration, LogFormat format, LogLevel level, CancellationToken token)
         {
             using var loggerFactory = new LoggerFactory();

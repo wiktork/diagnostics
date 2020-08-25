@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Microsoft.Diagnostics.Monitoring.EventPipe
 {
-    class EventGCPipelineSettings
+    public class EventGCPipelineSettings : EventSourcePipelineSettings
     {
     }
 }

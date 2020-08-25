@@ -19,11 +19,11 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             _processor = new Lazy<DiagnosticsEventPipeProcessor>(CreateProcessor);
         }
 
-        protected abstract DiagnosticsEventPipeProcessor CreateProcessor();
+        protected virtual DiagnosticsEventPipeProcessor CreateProcessor() => null;
 
         protected override Task OnRun(CancellationToken token)
         {
-            _processor.Value.Process()
+            return Task.CompletedTask;
         }
     }
 }

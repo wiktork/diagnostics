@@ -11,6 +11,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Graphs;
+using Microsoft.Diagnostics.Monitoring.EventPipe;
 
 namespace Microsoft.Diagnostics.Tools.GCDump
 {
@@ -118,6 +119,7 @@ namespace Microsoft.Diagnostics.Tools.GCDump
             var log = verbose ? Console.Out : TextWriter.Null; 
             
             memoryGraph = new MemoryGraph(50_000);
+
 
             if (!EventPipeDotNetHeapDumper.DumpFromEventPipe(ct, processId, memoryGraph, log, timeout, heapInfo))
             {
