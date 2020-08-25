@@ -486,7 +486,7 @@ namespace Graphs
         // To support very space efficient encodings, and to allow for easy serialiation (persistence to file)
         // Types are given an index and their data is stored in a m_types array.  TypeInfo is the data in this
         // array.  
-        internal struct TypeInfo
+        public struct TypeInfo
         {
             public string Name;                         // If DeferredTypeInfo.Module != null then this is a type name suffix.  
             public int Size;
@@ -647,7 +647,7 @@ namespace Graphs
         private int m_expectedNodeCount;                // Initial guess at graph Size. 
         private long m_totalSize;                       // Total Size of all the nodes in the graph.  
         internal int m_totalRefs;                       // Total Number of references in the graph
-        internal GrowableArray<TypeInfo> m_types;       // We expect only thousands of these
+        public GrowableArray<TypeInfo> m_types;       // We expect only thousands of these
         internal GrowableArray<DeferedTypeInfo> m_deferedTypes; // Types that we only have IDs and module image bases.
         internal SegmentedList<StreamLabel> m_nodes;    // We expect millions of these.  points at a serialize node in m_reader
         internal SegmentedMemoryStreamReader m_reader; // This is the actual data for the nodes.  Can be large

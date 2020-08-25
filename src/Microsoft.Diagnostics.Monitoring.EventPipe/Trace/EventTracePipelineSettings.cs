@@ -4,12 +4,8 @@ using System.Text;
 
 namespace Microsoft.Diagnostics.Monitoring.EventPipe
 { 
-    public class EventTracePipelineSettings
+    public class EventTracePipelineSettings : EventSourcePipelineSettings
     {
-        public int ProcessId { get; set; }
-
-        public TimeSpan Duration { get; set; }
-
         public MonitoringSourceConfiguration Configuration { get; set; }
     }
 }

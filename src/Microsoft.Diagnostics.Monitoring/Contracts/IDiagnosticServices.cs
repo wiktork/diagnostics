@@ -24,8 +24,6 @@ namespace Microsoft.Diagnostics.Monitoring
 
         Task<Stream> GetDump(IProcessInfo pi, DumpType mode, CancellationToken token);
 
-        Task<Stream> GetGcDump(IProcessInfo pi, CancellationToken token);
-
         Task StartLogs(Stream outputStream, IProcessInfo pi, TimeSpan duration, LogFormat logFormat, LogLevel logLevel, CancellationToken token);
     }
 

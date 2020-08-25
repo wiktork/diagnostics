@@ -4,13 +4,10 @@ using System.Text;
 
 namespace Microsoft.Diagnostics.Monitoring.EventPipe
 {
-    public class EventPipeCounterPipelineSettings
+    public class EventPipeCounterPipelineSettings : EventSourcePipelineSettings
     {
-        public int ProcessId { get; set; }
         public EventPipeCounterGroup[] CounterGroups { get; set; }
         public TimeSpan RefreshInterval { get; set; }
-
-        public TimeSpan Duration { get; set; }
     }
 
     public class EventPipeCounterGroup

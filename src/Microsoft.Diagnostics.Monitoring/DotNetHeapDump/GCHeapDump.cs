@@ -198,7 +198,7 @@ public class GCHeapDump : IFastSerializable, IFastSerializableVersion
     }
 
     // Creation APIs
-    internal GCHeapDump(MemoryGraph graph)
+    public GCHeapDump(MemoryGraph graph)
     {
         m_graph = graph;
         AverageCountMultiplier = 1;

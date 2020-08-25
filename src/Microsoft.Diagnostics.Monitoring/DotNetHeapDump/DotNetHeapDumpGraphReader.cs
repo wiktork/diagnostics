@@ -73,7 +73,7 @@ public class DotNetHeapDumpGraphReader
     /// <summary>
     /// Sets up the callbacks needed to do a heap dump (work need before processing the events()
     /// </summary>
-    internal void SetupCallbacks(MemoryGraph memoryGraph, TraceEventDispatcher source, string processNameOrId = null, double startTimeRelativeMSec = 0)
+    public void SetupCallbacks(MemoryGraph memoryGraph, TraceEventDispatcher source, string processNameOrId = null, double startTimeRelativeMSec = 0)
     {
         m_graph = memoryGraph;
         m_typeID2TypeIndex = new Dictionary<Address, NodeTypeIndex>(1000);
@@ -486,7 +486,7 @@ public class DotNetHeapDumpGraphReader
     /// from the events.  This is where that happens.   Thus 'SetupCallbacks, Process(), ConvertHeapDataToGraph()' is how
     /// you dump a heap.  
     /// </summary>
-    internal unsafe void ConvertHeapDataToGraph()
+    public unsafe void ConvertHeapDataToGraph()
     {
         int maxNodeCount = 10_000_000;
 
