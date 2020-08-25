@@ -211,7 +211,19 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
 
                 return new OutputStreamResult(async (outputStream, token) =>
                 {
-                    await _diagnosticServices.StartLogs(outputStream, processInfo, duration, format, level, token);
+                    using var loggerFactory = new LoggerFactory();
+
+                    loggerFactory.AddProvider(new StreamingLoggerProvider(outputStream, format, level));
+
+                    var settings = new EventLogsPipelineSettings
+                    {
+                        Duration = duration,
+                        LogLevel = level,
+                        ProcessId = processInfo.Pid
+                    };
+                    await using EventLogsPipeline pipeline = new EventLogsPipeline(processInfo.Client, settings, loggerFactory);
+                    await pipeline.RunAsync(token);
+
                 }, contentType, downloadName);
             });
         }
