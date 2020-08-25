@@ -25,12 +25,13 @@ namespace Microsoft.Diagnostics.Monitoring.Contracts
         private PipelineState _state = PipelineState.Unstarted;
         private Task _runTask;
         private Task _stopTask;
-
-        protected virtual Task OnAbort() => Task.CompletedTask;
+        private Task _abortTask;
 
         protected abstract Task OnRun(CancellationToken token);
 
-        protected abstract Task OnStop(CancellationToken token);
+        protected virtual Task OnAbort() => Task.CompletedTask;
+
+        protected virtual Task OnStop(CancellationToken token) => Task.CompletedTask;
 
         protected virtual ValueTask OnDispose() => default;
 
@@ -93,7 +94,7 @@ namespace Microsoft.Diagnostics.Monitoring.Contracts
                 {
                     _stopTask = stopTask;
                 }
-                return _runTask;
+                return _stopTask;
             }
         }
 
@@ -121,9 +122,18 @@ namespace Microsoft.Diagnostics.Monitoring.Contracts
             }
         }
 
-        private Task Abort()
+        private async Task Abort()
         {
-            return OnAbort();
+            Task abortTask = null;
+            lock (_lock)
+            {
+                if (_abortTask == null)
+                {
+                    _abortTask = OnAbort();
+                }
+                abortTask = _abortTask;
+            }
+            await abortTask;
         }
 
         private void TransitionState(PipelineState newState, bool throwOnFailure, params PipelineState[] allowedOldStates)
@@ -153,13 +163,33 @@ namespace Microsoft.Diagnostics.Monitoring.Contracts
             }
             _disposeSource.Cancel();
 
-            //TODO Should we await outstanding operations here, or do we push that responsibility to the OnDispose method?
+
             try
             {
-                await OnDispose();
+                Task startTask = null;
+                Task stopTask = null;
+
+                lock (_lock)
+                {
+                    startTask = _runTask;
+                    stopTask = _stopTask;
+                }
+
+                if (startTask != null)
+                {
+                    await startTask;
+                }
+                if (stopTask != null)
+                {
+                    await stopTask;
+                }
+            }
+            catch
+            {
             }
             finally
             {
+                await OnDispose();
                 _disposeSource.Dispose();
             }
         }
