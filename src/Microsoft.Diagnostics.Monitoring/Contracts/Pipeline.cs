@@ -46,7 +46,7 @@ namespace Microsoft.Diagnostics.Monitoring.Contracts
                     return _runTask;
                 }
             }
-
+            //THREADING BUG HERE!!!
             Task runTask = RunAsyncCore(token);
             lock (_lock)
             {
