@@ -72,20 +72,6 @@ namespace Microsoft.Diagnostics.Monitoring
             return new AutoDeleteFileStream(dumpFilePath);
         }
 
-        public async Task StartLogs(Stream outputStream, IProcessInfo pi, TimeSpan duration, LogFormat format, LogLevel level, CancellationToken token)
-        {
-            using var loggerFactory = new LoggerFactory();
-
-            loggerFactory.AddProvider(new StreamingLoggerProvider(outputStream, format, level));
-
-            await using var processor = new DiagnosticsEventPipeProcessor(
-                PipeMode.Logs,
-                loggerFactory: loggerFactory,
-                logsLevel: level);
-
-            await processor.Process(pi.Client, pi.Pid, duration, token);
-        }
-
         private static NETCore.Client.DumpType MapDumpType(DumpType dumpType)
         {
             switch (dumpType)

@@ -23,8 +23,6 @@ namespace Microsoft.Diagnostics.Monitoring
         Task<IProcessInfo> GetProcessAsync(ProcessFilter? filter, CancellationToken token);
 
         Task<Stream> GetDump(IProcessInfo pi, DumpType mode, CancellationToken token);
-
-        Task StartLogs(Stream outputStream, IProcessInfo pi, TimeSpan duration, LogFormat logFormat, LogLevel logLevel, CancellationToken token);
     }
 
 
