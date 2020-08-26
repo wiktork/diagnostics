@@ -10,6 +10,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Diagnostics.Monitoring;
+using Microsoft.Diagnostics.Monitoring.RestServer;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.Diagnostics.NETCore.Client.UnitTests;
 using Microsoft.Extensions.Logging;
@@ -42,7 +43,7 @@ namespace DotnetMonitor.UnitTests
             {
                 //TestRunner should account for start delay to make sure that the diagnostic pipe is available.
 
-                var loggerFactory = new LoggerFactory(/*FIXME*/);
+                var loggerFactory = new LoggerFactory(new[] { new StreamingLoggerProvider(outputStream, LogFormat.Json) });
 
                 DiagnosticsEventPipeProcessor diagnosticsEventPipeProcessor = new DiagnosticsEventPipeProcessor(
                     PipeMode.Logs,

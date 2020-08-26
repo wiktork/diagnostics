@@ -118,31 +118,31 @@ namespace Microsoft.Diagnostics.Monitoring
                     if (_mode == PipeMode.Metrics)
                     {
                         // Metrics
-                        HandleEventCounters(source);
+                        HandleEventCounters(_eventPipeSession);
                     }
 
                     if (_mode == PipeMode.Logs)
                     {
                         // Logging
-                        HandleLoggingEvents(source);
+                        HandleLoggingEvents(_eventPipeSession);
                     }
 
                     if (_mode == PipeMode.GCDump)
                     {
                         // GC
-                        handleEventsTask = HandleGCEvents(source, pid, stopFunc, token);
+                        handleEventsTask = HandleGCEvents(_eventPipeSession, pid, stopFunc, token);
                     }
 
                     if (_mode == PipeMode.ProcessInfo)
                     {
                         // ProcessInfo
-                        HandleProcessInfo(source, stopFunc, token);
+                        HandleProcessInfo(_eventPipeSession, stopFunc, token);
                     }
 
                     if (_mode == PipeMode.ProcessInfo)
                     {
                         // ProcessInfo
-                        HandleProcessInfo(source, stopFunc, token);
+                        HandleProcessInfo(_eventPipeSession, stopFunc, token);
                     }
 
                     _eventPipeSession.Process();
@@ -533,6 +533,7 @@ namespace Microsoft.Diagnostics.Monitoring
 
         public async ValueTask DisposeAsync()
         {
+            _eventPipeSession?.Dispose();
             foreach (IMetricsLogger logger in _metricLoggers)
             {
                 if (logger is IAsyncDisposable asyncDisposable)

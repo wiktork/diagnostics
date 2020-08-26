@@ -20,9 +20,9 @@ namespace DotnetMonitor.UnitTests
         }
 
         [Fact]
-        public async Task TestPipeline()
+        public async Task TestStartStopCancelDispose()
         {
-            var timePipeline = new TimePipeline();
+            var timePipeline = new DelayPipeline();
             var cancellationTokenSource = new CancellationTokenSource();
             var token = cancellationTokenSource.Token;
 
@@ -48,21 +48,40 @@ namespace DotnetMonitor.UnitTests
             await Assert.ThrowsAsync<ObjectDisposedException>(() => timePipeline.RunAsync(token));
 
             Assert.Equal(1, timePipeline.ExecutedAbort);
-
         }
 
-        private sealed class TimePipeline : Pipeline
+        [Fact]
+        public async Task TestStart()
+        {
+            var timePipeline = new DelayPipeline(TimeSpan.Zero);
+            await timePipeline.RunAsync(CancellationToken.None);
+            await timePipeline.DisposeAsync();
+
+            Assert.Equal(0, timePipeline.ExecutedAbort);
+        }
+
+        private sealed class DelayPipeline : Pipeline
         {
             public int ExecutedAbort { get; private set; } = 0;
+            public TimeSpan Delay { get; }
+
+            public DelayPipeline() : this(Timeout.InfiniteTimeSpan) 
+            {
+            }
+
+            public DelayPipeline(TimeSpan delay)
+            {
+                Delay = delay;
+            }
 
             protected override Task OnRun(CancellationToken token)
             {
-                return Task.Delay(Timeout.Infinite, token);
+                return Task.Delay(Delay, token);
             }
 
             protected override Task OnStop(CancellationToken token)
             {
-                return Task.Delay(Timeout.Infinite, token);
+                return Task.Delay(Delay, token);
             }
 
             protected override Task OnAbort()

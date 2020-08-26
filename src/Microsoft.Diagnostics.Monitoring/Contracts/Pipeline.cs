@@ -48,6 +48,7 @@ namespace Microsoft.Diagnostics.Monitoring.Contracts
             {
                 try
                 {
+                    linkedSource.Token.ThrowIfCancellationRequested();
                     await OnRun(linkedSource.Token);
                 }
                 catch (OperationCanceledException)
@@ -83,6 +84,7 @@ namespace Microsoft.Diagnostics.Monitoring.Contracts
             {
                 try
                 {
+                    linkedSource.Token.ThrowIfCancellationRequested();
                     await OnStop(linkedSource.Token);
                 }
                 catch (OperationCanceledException)
@@ -119,52 +121,33 @@ namespace Microsoft.Diagnostics.Monitoring.Contracts
             }
             _disposeSource.Cancel();
 
-
-            Task startTask = null;
-            Task stopTask = null;
-            Task abortTask = null;
-
-            lock (_lock)
-            {
-                startTask = _runTask;
-                stopTask = _stopTask;
-                abortTask = _abortTask;
-            }
-
-            if (startTask != null)
-            {
-                try
-                {
-                    await startTask;
-                }
-                catch
-                {
-                }
-                
-            }
-            if (stopTask != null)
-            {
-                try
-                {
-                    await stopTask;
-                }
-                catch
-                {
-                }
-            }
-            if (abortTask != null)
-            {
-                try
-                {
-                    await abortTask;
-                }
-                catch
-                {
-                }
-            }
+            //It's necessary to fully acquire the task, await it, and then move on to the next task.
+            await SafeExecuteTask(() => _runTask);
+            await SafeExecuteTask(() => _stopTask);
+            await SafeExecuteTask(() => _abortTask);
 
             await OnDispose();
             _disposeSource.Dispose();
+        }
+
+        private async Task SafeExecuteTask(Func<Task> acquireTask)
+        {
+            Task task = null;
+            lock (_lock)
+            {
+                task = acquireTask();
+            }
+
+            if (task != null)
+            {
+                try
+                {
+                    await task;
+                }
+                catch
+                {
+                }
+            }
         }
 
         private void ThrowIfDisposed()

@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading;
@@ -31,6 +32,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.UnitTests
         private sealed class TestMetricsLogger : IMetricsLogger
         {
             private readonly ITestOutputHelper _output;
+            private Dictionary<string, Metric> _metrics = new Dictionary<string, Metric>();
 
             public TestMetricsLogger(ITestOutputHelper output)
             {
@@ -41,9 +43,11 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.UnitTests
             {
             }
 
+            public IEnumerable<Metric> Metrics => _metrics.Values;
+
             public void LogMetrics(Metric metric)
             {
-                _output.WriteLine(metric.Name);
+                _metrics[string.Concat(metric.Namespace, "_", metric.Name)] = metric;
             }
         }
 
@@ -55,7 +59,9 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.UnitTests
                 throw new SkipTestException("Unstable test on OSX");
             }
 
-            var outputStream = new MemoryStream();
+            var logger = new TestMetricsLogger(_output);
+            var expectedCounters = new[] { "cpu-usage", "working-set" };
+            string expectedProvider = "System.Runtime";
 
             await using (var testExecution = StartTraceeProcess("CounterRemoteTest"))
             {
@@ -66,17 +72,22 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.UnitTests
                 EventCounterPipeline pipeline = new EventCounterPipeline(client, new EventPipeCounterPipelineSettings
                 {
                     Duration = TimeSpan.FromSeconds(10),
-                    CounterGroups = Array.Empty<EventPipeCounterGroup>(),
+                    CounterGroups = new[]
+                    {
+                        new EventPipeCounterGroup
+                        {
+                            ProviderName = expectedProvider,
+                            CounterNames = expectedCounters
+                        }
+                    },
                     ProcessId = testExecution.TestRunner.Pid,
                     RefreshInterval = TimeSpan.FromSeconds(1)
-                },
-                new IMetricsLogger[]{ new TestMetricsLogger(_output) });
+                }, new[] { logger });
 
                 Task pipelineTask = pipeline.RunAsync(CancellationToken.None);
 
                 //Add a small delay to make sure diagnostic processor had a chance to initialize
                 await Task.Delay(1000);
-
                 //Send signal to proceed with event collection
                 testExecution.Start();
 
@@ -90,34 +101,12 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.UnitTests
                 }
             }
 
-            outputStream.Position = 0L;
+            Assert.True(logger.Metrics.Any());
 
-            Assert.True(outputStream.Length > 0, "No data written by logging process.");
+            var actualMetrics = logger.Metrics.Select(m => m.Name).OrderBy(m => m);
 
-            using var reader = new StreamReader(outputStream);
-
-            string firstMessage = reader.ReadLine();
-            Assert.NotNull(firstMessage);
-
-            LoggerTestResult result = JsonSerializer.Deserialize<LoggerTestResult>(firstMessage);
-            Assert.Equal("Some warning message with 6", result.Message);
-            Assert.Equal("LoggerRemoteTest", result.Category);
-            Assert.Equal("Warning", result.LogLevel);
-            Assert.Equal("0", result.EventId);
-            Validate(result.Scopes, ("BoolValue", "true"), ("StringValue", "test"), ("IntValue", "5"));
-            Validate(result.Arguments, ("arg", "6"));
-
-            string secondMessage = reader.ReadLine();
-            Assert.NotNull(secondMessage);
-
-            result = JsonSerializer.Deserialize<LoggerTestResult>(secondMessage);
-            Assert.Equal("Another message", result.Message);
-            Assert.Equal("LoggerRemoteTest", result.Category);
-            Assert.Equal("Warning", result.LogLevel);
-            Assert.Equal("0", result.EventId);
-            Assert.Equal(0, result.Scopes.Count);
-            //We are expecting only the original format
-            Assert.Equal(1, result.Arguments.Count);
+            Assert.Equal(expectedCounters, actualMetrics);
+            Assert.True(logger.Metrics.All(m => string.Equals(m.Namespace, expectedProvider)));
         }
 
         private static void Validate(IDictionary<string, JsonElement> values, params (string key, object value)[] expectedValues)
