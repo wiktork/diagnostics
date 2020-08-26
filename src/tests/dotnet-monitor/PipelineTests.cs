@@ -25,7 +25,9 @@ namespace DotnetMonitor.UnitTests
             var timePipeline = new TimePipeline();
             var cancellationTokenSource = new CancellationTokenSource();
             var token = cancellationTokenSource.Token;
-            
+
+            await Assert.ThrowsAsync<PipelineException>(() => timePipeline.StopAsync());
+
             var startTask = timePipeline.RunAsync(token);
             var secondStartCall = timePipeline.RunAsync(token);
             Assert.Equal(startTask, secondStartCall);
@@ -40,6 +42,10 @@ namespace DotnetMonitor.UnitTests
             cancellationTokenSource.Cancel();
             
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => startTask);
+
+            await timePipeline.DisposeAsync();
+
+            await Assert.ThrowsAsync<ObjectDisposedException>(() => timePipeline.RunAsync(token));
 
             Assert.Equal(1, timePipeline.ExecutedAbort);
 

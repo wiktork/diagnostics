@@ -11,18 +11,9 @@ namespace Microsoft.Diagnostics.Monitoring.Contracts
 {
     public abstract class Pipeline : IPipeline, IAsyncDisposable
     {
-        private enum PipelineState
-        {
-            Unstarted = 0,
-            Running,
-            Stopping,
-            Stopped,
-            Disposed,
-        }
-
         private readonly CancellationTokenSource _disposeSource = new CancellationTokenSource();
         private object _lock = new object();
-        private PipelineState _state = PipelineState.Unstarted;
+        private bool _isDisposed;
         private Task _runTask;
         private Task _stopTask;
         private Task _abortTask;
@@ -37,20 +28,16 @@ namespace Microsoft.Diagnostics.Monitoring.Contracts
 
         public Task RunAsync(CancellationToken token)
         {
+            Task runTask = null;
             lock (_lock)
             {
                 ThrowIfDisposed();
 
-                if (_runTask != null)
+                if (_runTask == null)
                 {
-                    return _runTask;
+                    _runTask = RunAsyncCore(token);
                 }
-            }
-            //THREADING BUG HERE!!!
-            Task runTask = RunAsyncCore(token);
-            lock (_lock)
-            {
-                _runTask = runTask;
+                runTask = _runTask;
             }
             return _runTask;
         }
@@ -61,15 +48,7 @@ namespace Microsoft.Diagnostics.Monitoring.Contracts
             {
                 try
                 {
-                    try
-                    {
-                        TransitionState(PipelineState.Running, true, PipelineState.Unstarted);
-                        await OnRun(linkedSource.Token);
-                    }
-                    finally
-                    {
-                        TransitionState(PipelineState.Stopped, false, PipelineState.Running, PipelineState.Stopping);
-                    }
+                    await OnRun(linkedSource.Token);
                 }
                 catch (OperationCanceledException)
                 {
@@ -81,21 +60,21 @@ namespace Microsoft.Diagnostics.Monitoring.Contracts
 
         public Task StopAsync(CancellationToken token = default)
         {
+            Task stopTask = null;
             lock (_lock)
             {
                 ThrowIfDisposed();
-                if (_stopTask != null)
+                if (_runTask == null)
                 {
-                    return _stopTask;
+                    throw new PipelineException("Unable to stop unstarted pipeline");
                 }
-
-                Task stopTask = StopAsyncCore(token);
-                lock(_lock)
+                if (_stopTask == null)
                 {
-                    _stopTask = stopTask;
+                    _stopTask = StopAsyncCore(token);
                 }
-                return _stopTask;
+                stopTask = _stopTask;
             }
+            return stopTask;
         }
 
         private async Task StopAsyncCore(CancellationToken token)
@@ -104,15 +83,7 @@ namespace Microsoft.Diagnostics.Monitoring.Contracts
             {
                 try
                 {
-                    try
-                    {
-                        TransitionState(PipelineState.Stopping, true, PipelineState.Running);
-                        await OnStop(linkedSource.Token);
-                    }
-                    finally
-                    {
-                        TransitionState(PipelineState.Stopped, false, PipelineState.Stopping);
-                    }
+                    await OnStop(linkedSource.Token);
                 }
                 catch (OperationCanceledException)
                 {
@@ -136,67 +107,69 @@ namespace Microsoft.Diagnostics.Monitoring.Contracts
             await abortTask;
         }
 
-        private void TransitionState(PipelineState newState, bool throwOnFailure, params PipelineState[] allowedOldStates)
-        {
-            lock(_lock)
-            {
-                if (allowedOldStates.Contains(_state))
-                {
-                    _state = newState;
-                }
-                else if (throwOnFailure)
-                {
-                    throw new PipelineException($"Unable to transition from {_state} to {newState}");
-                }
-            }
-        }
-
         public async ValueTask DisposeAsync()
         {
             lock (_lock)
             {
-                if (_state == PipelineState.Disposed)
+                if (_isDisposed)
                 {
                     return;
                 }
-                _state = PipelineState.Disposed;
+                _isDisposed = true;
             }
             _disposeSource.Cancel();
 
 
-            try
+            Task startTask = null;
+            Task stopTask = null;
+            Task abortTask = null;
+
+            lock (_lock)
             {
-                Task startTask = null;
-                Task stopTask = null;
+                startTask = _runTask;
+                stopTask = _stopTask;
+                abortTask = _abortTask;
+            }
 
-                lock (_lock)
-                {
-                    startTask = _runTask;
-                    stopTask = _stopTask;
-                }
-
-                if (startTask != null)
+            if (startTask != null)
+            {
+                try
                 {
                     await startTask;
                 }
-                if (stopTask != null)
+                catch
+                {
+                }
+                
+            }
+            if (stopTask != null)
+            {
+                try
                 {
                     await stopTask;
                 }
+                catch
+                {
+                }
             }
-            catch
+            if (abortTask != null)
             {
+                try
+                {
+                    await abortTask;
+                }
+                catch
+                {
+                }
             }
-            finally
-            {
-                await OnDispose();
-                _disposeSource.Dispose();
-            }
+
+            await OnDispose();
+            _disposeSource.Dispose();
         }
 
         private void ThrowIfDisposed()
         {
-            if (_state == PipelineState.Disposed)
+            if (_isDisposed)
             {
                 throw new ObjectDisposedException(GetType().Name);
             }
