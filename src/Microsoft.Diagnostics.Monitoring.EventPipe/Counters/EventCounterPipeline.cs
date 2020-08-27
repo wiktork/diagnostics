@@ -11,52 +11,35 @@ using System.Threading.Tasks;
 
 namespace Microsoft.Diagnostics.Monitoring.EventPipe
 {
-    public sealed class EventCounterPipeline : EventSourcePipeline
+    public sealed class EventCounterPipeline : EventSourcePipeline<EventPipeCounterPipelineSettings>
     {
-        private DiagnosticsEventPipeProcessor _pipeProcessor;
-        private EventPipeCounterPipelineSettings _settings;
-        private DiagnosticsClient _diagnosticsClient;
+        private IEnumerable<IMetricsLogger> _metricsLogger;
+        private CounterFilter _filter;
 
         public EventCounterPipeline(DiagnosticsClient client,
             EventPipeCounterPipelineSettings settings,
-            IEnumerable<IMetricsLogger> metricsLogger)
+            IEnumerable<IMetricsLogger> metricsLogger) : base(client, settings)
         {
-            CounterFilter filter;
             if (settings.CounterGroups.Length > 0)
             {
-                filter = new CounterFilter();
+                _filter = new CounterFilter();
                 foreach (var counterGroup in settings.CounterGroups)
                 {
-                    filter.AddFilter(counterGroup.ProviderName, counterGroup.CounterNames);
+                    _filter.AddFilter(counterGroup.ProviderName, counterGroup.CounterNames);
                 }
             }
             else
             {
-                filter = CounterFilter.AllCounters;
+                _filter = CounterFilter.AllCounters;
             }
 
-
-            _pipeProcessor = new DiagnosticsEventPipeProcessor(PipeMode.Metrics, metricLoggers: metricsLogger, metricIntervalSeconds: (int)settings.RefreshInterval.TotalSeconds,
-                metricFilter: filter);
-
-            _settings = settings;
-            _diagnosticsClient = client;
+            _metricsLogger = metricsLogger;
         }
-         
-        protected override Task OnRun(CancellationToken token)
+
+        protected override DiagnosticsEventPipeProcessor CreateProcessor()
         {
-            return _pipeProcessor.Process(_diagnosticsClient, 0, _settings.Duration, token);
+            return new DiagnosticsEventPipeProcessor(PipeMode.Metrics, metricLoggers: _metricsLogger, metricIntervalSeconds: (int)Settings.RefreshInterval.TotalSeconds,
+                metricFilter: _filter);
         }
-
-        protected override Task OnStop(CancellationToken token)
-        {
-            return Task.CompletedTask;
-        }
-
-        protected override async ValueTask OnDispose()
-        {
-            await _pipeProcessor.DisposeAsync();
-        }
-
     }
 }
