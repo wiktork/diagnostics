@@ -11,6 +11,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Graphs;
+using Microsoft.Diagnostics.Monitoring.Contracts;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.Diagnostics.Tracing;
 using Microsoft.Diagnostics.Tracing.Parsers.Clr;
@@ -23,28 +24,37 @@ namespace Microsoft.Diagnostics.Monitoring
         Logs = 1,
         Metrics,
         GCDump,
-        ProcessInfo
+        ProcessInfo,
+        Nettrace,
     }
 
-    public class DiagnosticsEventPipeProcessor : IAsyncDisposable
+    public partial class DiagnosticsEventPipeProcessor : IAsyncDisposable
     {
         private readonly MemoryGraph _gcGraph;
         private readonly ILoggerFactory _loggerFactory;
         private readonly IEnumerable<IMetricsLogger> _metricLoggers;
         private readonly PipeMode _mode;
         private readonly int _metricIntervalSeconds;
+        private readonly CounterFilter _counterFilter;
         private readonly LogLevel _logsLevel;
         private readonly Action<string> _processInfoCallback;
+        private readonly MonitoringSourceConfiguration _userConfig;
+        private readonly Func<Stream, CancellationToken, Task> _streamAvailable;
+
+        private EventPipeEventSource _eventPipeSession;
+        private DiagnosticsMonitor _diagnosticsMonitor;
 
         public DiagnosticsEventPipeProcessor(
             PipeMode mode,
-            ILoggerFactory loggerFactory = null,              // PipeMode = Logs
-            LogLevel logsLevel = LogLevel.Debug,              // PipeMode = Logs
-            IEnumerable<IMetricsLogger> metricLoggers = null, // PipeMode = Metrics
-            int metricIntervalSeconds = 10,                   // PipeMode = Metrics
-            MemoryGraph gcGraph = null,                       // PipeMode = GCDump
-            Action<string> processInfoCallback = null         // PipeMode = ProcessInfo
-            )
+            ILoggerFactory loggerFactory = null,                // PipeMode = Logs
+            LogLevel logsLevel = LogLevel.Debug,                // PipeMode = Logs
+            IEnumerable<IMetricsLogger> metricLoggers = null,   // PipeMode = Metrics
+            int metricIntervalSeconds = 10,                     // PipeMode = Metrics
+            CounterFilter metricFilter = null,                  // PipeMode = Metrics
+            MemoryGraph gcGraph = null,                         // PipeMode = GCDump
+            Action<string> processInfoCallback = null,          // PipeMode = ProcessInfo
+            MonitoringSourceConfiguration configuration = null, // PipeMode = Nettrace
+            Func<Stream, CancellationToken, Task> streamAvailable = null)             // PipeMode = Nettrace
         {
             _metricLoggers = metricLoggers ?? Enumerable.Empty<IMetricsLogger>();
             _mode = mode;
@@ -53,14 +63,16 @@ namespace Microsoft.Diagnostics.Monitoring
             _metricIntervalSeconds = metricIntervalSeconds;
             _logsLevel = logsLevel;
             _processInfoCallback = processInfoCallback;
+            _userConfig = configuration;
+            _streamAvailable = streamAvailable;
+            _processInfoCallback = processInfoCallback;
+            _counterFilter = metricFilter;
         }
 
         public async Task Process(DiagnosticsClient client, int pid, TimeSpan duration, CancellationToken token)
         {
             await await Task.Factory.StartNew(async () =>
             {
-                EventPipeEventSource source = null;
-                DiagnosticsMonitor monitor = null;
                 Task handleEventsTask = Task.CompletedTask;
                 try
                 {
@@ -69,11 +81,11 @@ namespace Microsoft.Diagnostics.Monitoring
                     {
                         config = new LoggingSourceConfiguration(_logsLevel);
                     }
-                    if (_mode == PipeMode.Metrics)
+                    else if (_mode == PipeMode.Metrics)
                     {
                         config = new MetricSourceConfiguration(_metricIntervalSeconds);
                     }
-                    if (_mode == PipeMode.GCDump)
+                    else if (_mode == PipeMode.GCDump)
                     {
                         config = new GCDumpSourceConfiguration();
                     }
@@ -81,40 +93,57 @@ namespace Microsoft.Diagnostics.Monitoring
                     {
                         config = new SampleProfilerConfiguration();
                     }
+                    else if (_mode == PipeMode.Nettrace)
+                    {
+                        config = _userConfig;
+                    }
 
-                    monitor = new DiagnosticsMonitor(config);
-                    Stream sessionStream = await monitor.ProcessEvents(client, duration, token);
-                    source = new EventPipeEventSource(sessionStream);
+                    _diagnosticsMonitor = new DiagnosticsMonitor(config);
+                    Stream sessionStream = await _diagnosticsMonitor.ProcessEvents(client, duration, token);
+
+                    if (_mode == PipeMode.Nettrace)
+                    {
+                        //Await the callee, then cleanup the stream;
+                        await _streamAvailable(sessionStream, token);
+                        return;
+                    }
+
+                    _eventPipeSession = new EventPipeEventSource(sessionStream);
 
                     // Allows the event handling routines to stop processing before the duration expires.
-                    Func<Task> stopFunc = () => Task.Run(() => { monitor.StopProcessing(); });
+                    Func<Task> stopFunc = () => Task.Run(() => { _diagnosticsMonitor.StopProcessing(); });
 
                     if (_mode == PipeMode.Metrics)
                     {
                         // Metrics
-                        HandleEventCounters(source);
+                        HandleEventCounters(_eventPipeSession);
                     }
 
                     if (_mode == PipeMode.Logs)
                     {
                         // Logging
-                        HandleLoggingEvents(source);
+                        HandleLoggingEvents(_eventPipeSession);
                     }
 
                     if (_mode == PipeMode.GCDump)
                     {
                         // GC
-                        handleEventsTask = HandleGCEvents(source, pid, stopFunc, token);
+                        handleEventsTask = HandleGCEvents(_eventPipeSession, pid, stopFunc, token);
                     }
 
                     if (_mode == PipeMode.ProcessInfo)
                     {
                         // ProcessInfo
-                        HandleProcessInfo(source, stopFunc, token);
+                        HandleProcessInfo(_eventPipeSession, stopFunc, token);
                     }
 
-                    source.Process();
+                    if (_mode == PipeMode.ProcessInfo)
+                    {
+                        // ProcessInfo
+                        HandleProcessInfo(_eventPipeSession, stopFunc, token);
+                    }
 
+                    _eventPipeSession.Process();
                     token.ThrowIfCancellationRequested();
                 }
                 catch (DiagnosticsClientException ex)
@@ -123,10 +152,10 @@ namespace Microsoft.Diagnostics.Monitoring
                 }
                 finally
                 {
-                    source?.Dispose();
-                    if (monitor != null)
+                    _eventPipeSession?.Dispose();
+                    if (_diagnosticsMonitor != null)
                     {
-                        await monitor.DisposeAsync();
+                        await _diagnosticsMonitor.DisposeAsync();
                     }
                 }
 
@@ -137,6 +166,18 @@ namespace Microsoft.Diagnostics.Monitoring
                 await handleEventsTask;
 
             }, token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+        }
+
+        public void StopProcessing()
+        {
+            if (_eventPipeSession != null)
+            {
+                _eventPipeSession.StopProcessing();
+            }
+            else if (_diagnosticsMonitor != null)
+            {
+                _diagnosticsMonitor.StopProcessing();
+            }
         }
 
         private void HandleLoggingEvents(EventPipeEventSource source)
@@ -296,8 +337,13 @@ namespace Microsoft.Diagnostics.Monitoring
                             return;
                         }
 
-                        float intervalSec = (float)payloadFields["IntervalSec"];
                         string counterName = payloadFields["Name"].ToString();
+                        if (!_counterFilter.Include(traceEvent.ProviderName, counterName))
+                        {
+                            return;
+                        }
+
+                        float intervalSec = (float)payloadFields["IntervalSec"];
                         string displayName = payloadFields["DisplayName"].ToString();
                         string displayUnits = payloadFields["DisplayUnits"].ToString();
                         double value = 0;
@@ -485,6 +531,7 @@ namespace Microsoft.Diagnostics.Monitoring
 
         public async ValueTask DisposeAsync()
         {
+            _eventPipeSession?.Dispose();
             foreach (IMetricsLogger logger in _metricLoggers)
             {
                 if (logger is IAsyncDisposable asyncDisposable)

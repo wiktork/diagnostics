@@ -23,18 +23,8 @@ namespace Microsoft.Diagnostics.Monitoring
         Task<IProcessInfo> GetProcessAsync(ProcessFilter? filter, CancellationToken token);
 
         Task<Stream> GetDump(IProcessInfo pi, DumpType mode, CancellationToken token);
-
-        Task<Stream> GetGcDump(IProcessInfo pi, CancellationToken token);
-
-        Task<IStreamWithCleanup> StartTrace(IProcessInfo pi, MonitoringSourceConfiguration configuration, TimeSpan duration, CancellationToken token);
-
-        Task StartLogs(Stream outputStream, IProcessInfo pi, TimeSpan duration, LogFormat logFormat, LogLevel logLevel, CancellationToken token);
     }
 
-    public interface IStreamWithCleanup : IAsyncDisposable
-    {
-        Stream Stream { get; }
-    }
 
     public interface IProcessInfo
     {
@@ -51,21 +41,5 @@ namespace Microsoft.Diagnostics.Monitoring
         Mini,
         WithHeap,
         Triage
-    }
-
-    public enum LogFormat
-    {
-        None = 0,
-        Json = 1,
-        EventStream = 2
-    }
-
-    [Flags]
-    public enum TraceProfile
-    {
-        Cpu =     0x1,
-        Http =    0x2,
-        Logs =    0x4,
-        Metrics = 0x8
     }
 }

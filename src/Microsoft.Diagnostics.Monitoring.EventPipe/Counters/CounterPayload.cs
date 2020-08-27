@@ -6,7 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Microsoft.Diagnostics.Tools.Counters
+namespace Microsoft.Diagnostics.Monitoring
 {
     public interface ICounterPayload
     {
@@ -17,7 +17,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
     }
 
 
-    class CounterPayload : ICounterPayload
+    public class CounterPayload : ICounterPayload
     {
         public string m_Name;
         public double m_Value;
@@ -60,7 +60,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
         }
     }
 
-    class IncrementingCounterPayload : ICounterPayload
+    public class IncrementingCounterPayload : ICounterPayload
     {
         public string m_Name;
         public double m_Value;
