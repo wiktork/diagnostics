@@ -9,33 +9,18 @@ using System.Threading.Tasks;
 
 namespace Microsoft.Diagnostics.Monitoring.EventPipe
 {
-    public class EventTracePipeline : EventSourcePipeline
+    public class EventTracePipeline : EventSourcePipeline<EventTracePipelineSettings>
     {
-        private readonly DiagnosticsClient _client;
-        private readonly EventTracePipelineSettings _settings;
-        private readonly DiagnosticsEventPipeProcessor _pipeProcessor;
-
+        private readonly Func<Stream, CancellationToken, Task> _streamAvailable;
         public EventTracePipeline(DiagnosticsClient client, EventTracePipelineSettings settings, Func<Stream, CancellationToken, Task> streamAvailable)
+            : base(client, settings)
         {
-            _client = client;
-            _settings = settings;
-            _pipeProcessor = new DiagnosticsEventPipeProcessor(PipeMode.Nettrace, configuration: settings.Configuration, streamAvailable: streamAvailable);
-        }
-        
-        protected override Task OnRun(CancellationToken token)
-        {
-            return _pipeProcessor.Process(_client, _settings.ProcessId, _settings.Duration, token);
+            _streamAvailable = streamAvailable;
         }
 
-        protected override Task OnStop(CancellationToken token)
+        protected override DiagnosticsEventPipeProcessor CreateProcessor()
         {
-            _pipeProcessor.StopProcessing();
-            return Task.CompletedTask;
-        }
-
-        protected override ValueTask OnDispose()
-        {
-            return _pipeProcessor.DisposeAsync();
+            return new DiagnosticsEventPipeProcessor(PipeMode.Nettrace, configuration: Settings.Configuration, streamAvailable: _streamAvailable);
         }
     }
 }

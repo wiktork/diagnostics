@@ -1,5 +1,6 @@
 ﻿using Graphs;
 using Microsoft.Diagnostics.NETCore.Client;
+using Microsoft.Diagnostics.Tracing.Parsers.Clr;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -8,33 +9,18 @@ using System.Threading.Tasks;
 
 namespace Microsoft.Diagnostics.Monitoring.EventPipe
 {
-    public class EventGCPipeline : EventSourcePipeline
+    public class EventGCPipeline : EventSourcePipeline<EventGCPipelineSettings>
     {
-        private DiagnosticsEventPipeProcessor _pipeProcessor;
-        private EventGCPipelineSettings _settings;
-        private DiagnosticsClient _client;
+        private readonly MemoryGraph _gcGraph;
 
-        public EventGCPipeline(DiagnosticsClient client, EventGCPipelineSettings settings, MemoryGraph gcGraph)
+        public EventGCPipeline(DiagnosticsClient client, EventGCPipelineSettings settings, MemoryGraph gcGraph) : base(client, settings)
         {
-            _pipeProcessor = new DiagnosticsEventPipeProcessor(PipeMode.GCDump, gcGraph: gcGraph);
-            _client = client;
-            _settings = settings;
+            _gcGraph = gcGraph;
         }
 
-        protected override Task OnRun(CancellationToken token)
+        protected override DiagnosticsEventPipeProcessor CreateProcessor()
         {
-            return _pipeProcessor.Process(_client, _settings.ProcessId, _settings.Duration, token);
-        }
-
-        protected override Task OnStop(CancellationToken token)
-        {
-            _pipeProcessor.StopProcessing();
-            return Task.CompletedTask;
-        }
-
-        protected override ValueTask OnDispose()
-        {
-            return _pipeProcessor.DisposeAsync();
+            return new DiagnosticsEventPipeProcessor(PipeMode.GCDump, gcGraph: _gcGraph);
         }
     }
 }

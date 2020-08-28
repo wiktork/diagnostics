@@ -8,33 +8,18 @@ using System.Threading.Tasks;
 
 namespace Microsoft.Diagnostics.Monitoring.EventPipe
 {
-    public class EventLogsPipeline : EventSourcePipeline
+    public class EventLogsPipeline : EventSourcePipeline<EventLogsPipelineSettings>
     {
-        private readonly DiagnosticsClient _client;
-        private readonly EventLogsPipelineSettings _settings;
-        private readonly DiagnosticsEventPipeProcessor _pipeProcessor;
-
-        public EventLogsPipeline(DiagnosticsClient client, EventLogsPipelineSettings settings, ILoggerFactory factory)
+        private readonly ILoggerFactory _factory;
+        public EventLogsPipeline(DiagnosticsClient client, EventLogsPipelineSettings settings, ILoggerFactory factory) 
+            : base(client, settings)
         {
-            _client = client;
-            _settings = settings;
-            _pipeProcessor = new DiagnosticsEventPipeProcessor(PipeMode.Logs, loggerFactory: factory, logsLevel: settings.LogLevel);
+            _factory = factory;
         }
 
-        protected override Task OnRun(CancellationToken token)
+        protected override DiagnosticsEventPipeProcessor CreateProcessor()
         {
-            return _pipeProcessor.Process(_client, _settings.ProcessId, _settings.Duration, token);
-        }
-
-        protected override Task OnStop(CancellationToken token)
-        {
-            _pipeProcessor.StopProcessing();
-            return Task.CompletedTask;
-        }
-
-        protected override ValueTask OnDispose()
-        {
-            return _pipeProcessor.DisposeAsync();
+            return new DiagnosticsEventPipeProcessor(PipeMode.Logs, loggerFactory: _factory, logsLevel: Settings.LogLevel);
         }
     }
 }
