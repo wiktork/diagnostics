@@ -6,18 +6,9 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Microsoft.Diagnostics.Monitoring
+namespace Microsoft.Diagnostics.Monitoring.EventPipe
 {
-    public interface ICounterPayload
-    {
-        string GetName();
-        double GetValue();
-        string GetDisplay();
-        string GetCounterType();
-    }
-
-
-    public class CounterPayload : ICounterPayload
+    internal class CounterPayload : ICounterPayload
     {
         public string m_Name;
         public double m_Value;
@@ -60,7 +51,7 @@ namespace Microsoft.Diagnostics.Monitoring
         }
     }
 
-    public class IncrementingCounterPayload : ICounterPayload
+    internal class IncrementingCounterPayload : ICounterPayload
     {
         public string m_Name;
         public double m_Value;
