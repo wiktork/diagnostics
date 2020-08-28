@@ -7,7 +7,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
-namespace Microsoft.Diagnostics.Monitoring
+namespace Microsoft.Diagnostics.Monitoring.EventPipe
 {
     public enum MetricType
     {

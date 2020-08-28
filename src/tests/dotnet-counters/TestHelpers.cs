@@ -5,8 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using Microsoft.Diagnostics.Monitoring;
-using Microsoft.Diagnostics.Tools.Counters;
+using Microsoft.Diagnostics.Monitoring.EventPipe;
 
 namespace DotnetCounters.UnitTests
 {

@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Graphs;
 using Microsoft.Diagnostics.Monitoring.Contracts;
+using Microsoft.Diagnostics.Monitoring.EventPipe;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.Diagnostics.Tracing;
 using Microsoft.Diagnostics.Tracing.Parsers.Clr;
