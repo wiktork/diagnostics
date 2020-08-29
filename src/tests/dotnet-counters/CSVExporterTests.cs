@@ -41,7 +41,7 @@ namespace DotnetCounters.UnitTests
             {
                 exporter.CounterPayloadReceived("myProvider", TestHelpers.GenerateCounterPayload(true, "incrementingCounterOne", i, 1, "Incrementing Counter One: " + i.ToString()));
             }
-            exporter.PipelineStopped();
+            exporter.Dispose();
 
             List<string> lines = ReadAllLines(ms);
             Assert.Equal(101, lines.Count); // should be 101 including the headers
@@ -68,12 +68,11 @@ namespace DotnetCounters.UnitTests
         {
             MemoryStream ms = new MemoryStream();
             CounterCsvStreamExporter exporter = new CounterCsvStreamExporter(ms);
-            exporter.PipelineStarted();
             for (int i = 0; i < 10; i++)
             {
                 exporter.CounterPayloadReceived("myProvider", TestHelpers.GenerateCounterPayload(false, "counterOne", i, 1, "Counter One: " + i.ToString()));
             }
-            exporter.PipelineStopped();
+            exporter.Dispose();
 
             List<string> lines = ReadAllLines(ms);
             Assert.Equal(11, lines.Count); // should be 11 including the headers
@@ -101,13 +100,11 @@ namespace DotnetCounters.UnitTests
         {
             MemoryStream ms = new MemoryStream();
             CounterCsvStreamExporter exporter = new CounterCsvStreamExporter(ms);
-            exporter.PipelineStarted();
             for (int i = 0; i < 100; i++)
             {
                 exporter.CounterPayloadReceived("myProvider", TestHelpers.GenerateCounterPayload(true, "incrementingCounterOne", i, 60, "Incrementing Counter One: " + i.ToString()));
             }
-            exporter.PipelineStopped();
-
+            exporter.Dispose();
 
             List<string> lines = ReadAllLines(ms);
             Assert.Equal(101, lines.Count); // should be 101 including the headers
@@ -134,12 +131,11 @@ namespace DotnetCounters.UnitTests
         {
             MemoryStream ms = new MemoryStream();
             CounterCsvStreamExporter exporter = new CounterCsvStreamExporter(ms);
-            exporter.PipelineStarted();
             for (int i = 0; i < 100; i++)
             {
                 exporter.CounterPayloadReceived("myProvider", TestHelpers.GenerateCounterPayload(true, "allocRateGen", i, 60, "Allocation Rate Gen: " + i.ToString(), "MB"));
             }
-            exporter.PipelineStopped();
+            exporter.Dispose();
 
             List<string> lines = ReadAllLines(ms);
             Assert.Equal(101, lines.Count); // should be 101 including the headers

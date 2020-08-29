@@ -9,9 +9,9 @@ using System.Text;
 
 namespace Microsoft.Diagnostics.Monitoring
 {
-    public class CounterCsvStreamExporter : IMetricsLogger
+    internal class CounterCsvStreamExporter : IMetricsLogger
     {
-        private StringBuilder builder;
+        private StringBuilder _builder;
         private int flushLength = 10_000; // Arbitrary length to flush
         private StreamWriter _outputWriter;
         private bool _firstOutput = true;
@@ -21,44 +21,33 @@ namespace Microsoft.Diagnostics.Monitoring
             _outputWriter = new StreamWriter(outputStream);
         }
 
-        public void PipelineStarted()
-        {
-            builder = new StringBuilder();
-            builder.AppendLine("Timestamp,Provider,Counter Name,Counter Type,Mean/Increment");
-        }
-
         public void CounterPayloadReceived(string providerName, ICounterPayload payload)
         {
             if (_firstOutput)
             {
-                builder = new StringBuilder();
-                builder.AppendLine("Timestamp,Provider,Counter Name,Counter Type,Mean/Increment");
+                _builder = new StringBuilder();
+                _builder.AppendLine("Timestamp,Provider,Counter Name,Counter Type,Mean/Increment");
                 _firstOutput = false;
             }
 
-            if (builder.Length > flushLength)
+            if (_builder.Length > flushLength)
             {
                 FlushToStream();
             }
-            builder.Append(DateTime.UtcNow.ToString() + ",");
-            builder.Append(providerName + ",");
-            builder.Append(payload.GetDisplay() + ",");
-            builder.Append(payload.GetCounterType() + ",");
-            builder.Append(payload.GetValue() + "\n");
-        }
-
-        public void PipelineStopped()
-        {
-            FlushToStream();
+            _builder.Append(DateTime.UtcNow.ToString() + ",");
+            _builder.Append(providerName + ",");
+            _builder.Append(payload.GetDisplay() + ",");
+            _builder.Append(payload.GetCounterType() + ",");
+            _builder.Append(payload.GetValue() + "\n");
         }
 
         private void FlushToStream()
         {
-            if (builder != null)
+            if (_builder != null)
             {
-                _outputWriter.Write(builder.ToString());
+                _outputWriter.Write(_builder.ToString());
                 _outputWriter.Flush();
-                builder.Clear();
+                _builder.Clear();
             }
         }
 

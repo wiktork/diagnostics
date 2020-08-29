@@ -22,12 +22,11 @@ namespace DotnetCounters.UnitTests
         {
             MemoryStream ms = new MemoryStream();
             CounterJsonStreamExporter exporter = new CounterJsonStreamExporter(ms, "myProcess.exe");
-            exporter.PipelineStarted();
             for (int i = 0; i < 10; i++)
             {
                 exporter.CounterPayloadReceived("myProvider", TestHelpers.GenerateCounterPayload(true, "incrementingCounterOne", 1.0, 1, "Incrementing Counter One"));
             }
-            exporter.PipelineStopped();
+            exporter.Dispose();
 
             ms.Position = 0;
             using (StreamReader r = new StreamReader(ms))
@@ -52,12 +51,11 @@ namespace DotnetCounters.UnitTests
         {
             MemoryStream ms = new MemoryStream();
             CounterJsonStreamExporter exporter = new CounterJsonStreamExporter(ms, "myProcess.exe");
-            exporter.PipelineStarted();
             for (int i = 0; i < 10; i++)
             {
                 exporter.CounterPayloadReceived("myProvider", TestHelpers.GenerateCounterPayload(false, "counterOne", 1.0, 1, "Counter One"));
             }
-            exporter.PipelineStopped();
+            exporter.Dispose();
 
             ms.Position = 0;
             using (StreamReader r = new StreamReader(ms))
@@ -82,12 +80,11 @@ namespace DotnetCounters.UnitTests
         {
             MemoryStream ms = new MemoryStream();
             CounterJsonStreamExporter exporter = new CounterJsonStreamExporter(ms, "myProcess.exe");
-            exporter.PipelineStarted();
             for (int i = 0; i < 20; i++)
             {
                 exporter.CounterPayloadReceived("myProvider", TestHelpers.GenerateCounterPayload(false, "heapSize", (double)i, 0, "Heap Size", "MB"));
             }
-            exporter.PipelineStopped();
+            exporter.Dispose();
 
             ms.Position = 0;
             using (StreamReader r = new StreamReader(ms))
@@ -115,13 +112,12 @@ namespace DotnetCounters.UnitTests
 
             MemoryStream ms = new MemoryStream();
             CounterJsonStreamExporter exporter = new CounterJsonStreamExporter(ms, "myProcess.exe");
-            exporter.PipelineStarted();
 
             for (int i = 0 ; i < 20; i++)
             {
                 exporter.CounterPayloadReceived("myProvider", TestHelpers.GenerateCounterPayload(false, "heapSize", 0, 0, "Heap Size", "MB"));
             }
-            exporter.PipelineStopped();
+            exporter.Dispose();
 
             ms.Position = 0;
             using (StreamReader r = new StreamReader(ms))

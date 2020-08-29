@@ -22,16 +22,18 @@ namespace Microsoft.Diagnostics.Monitoring
             _outputWriter = new StreamWriter(outputStream);
             _processName = processName;
         }
-        public void PipelineStarted()
-        {
-            builder = new StringBuilder();
-            builder.Append($"{{ \"TargetProcess\": \"{_processName}\", ");
-            builder.Append($"\"StartTime\": \"{DateTime.Now.ToString()}\", ");
-            builder.Append($"\"Events\": [");
-        }
 
         public void CounterPayloadReceived(string providerName, ICounterPayload payload)
         {
+            if (_first)
+            {
+                builder = new StringBuilder();
+                builder.Append($"{{ \"TargetProcess\": \"{_processName}\", ");
+                builder.Append($"\"StartTime\": \"{DateTime.Now.ToString()}\", ");
+                builder.Append($"\"Events\": [");
+                _first = false;
+            }
+
             if (builder.Length > flushLength)
             {
                 FlushToStream();
@@ -43,13 +45,6 @@ namespace Microsoft.Diagnostics.Monitoring
             builder.Append($" \"value\": {payload.GetValue()} }},");
         }
 
-        public void PipelineStopped()
-        {
-            builder.Remove(builder.Length - 1, 1); // Remove the last comma to ensure valid JSON format.
-            builder.Append($"] }}");
-            FlushToStream();
-        }
-
         private void FlushToStream()
         {
             _outputWriter.Write(builder.ToString());
@@ -59,17 +54,13 @@ namespace Microsoft.Diagnostics.Monitoring
 
         public void LogMetrics(Metric metric)
         {
-            if (_first)
-            {
-                PipelineStarted();
-                _first = false;
-            }
-
             CounterPayloadReceived(metric.Namespace, metric);
         }
 
         public void Dispose()
         {
+            builder.Remove(builder.Length - 1, 1); // Remove the last comma to ensure valid JSON format.
+            builder.Append($"] }}");
             FlushToStream();
         }
     }
