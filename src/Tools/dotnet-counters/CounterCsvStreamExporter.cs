@@ -18,7 +18,7 @@ namespace Microsoft.Diagnostics.Monitoring
 
         public CounterCsvStreamExporter(Stream outputStream)
         {
-            _outputWriter = new StreamWriter(outputStream);
+            _outputWriter = new StreamWriter(outputStream, Encoding.UTF8, 4096, true);
         }
 
         public void CounterPayloadReceived(string providerName, ICounterPayload payload)

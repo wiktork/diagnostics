@@ -19,7 +19,7 @@ namespace Microsoft.Diagnostics.Monitoring
 
         public CounterJsonStreamExporter(Stream outputStream, string processName)
         {
-            _outputWriter = new StreamWriter(outputStream);
+            _outputWriter = new StreamWriter(outputStream, Encoding.UTF8, 4096, true);
             _processName = processName;
         }
 
