@@ -19,11 +19,11 @@ using Xunit.Extensions;
 
 namespace Microsoft.Diagnostics.Monitoring.EventPipe.UnitTests
 {
-    public class EventPipeUnitTests
+    public class EventCounterPipelineUnitTests
     {
         private readonly ITestOutputHelper _output;
 
-        public EventPipeUnitTests(ITestOutputHelper output)
+        public EventCounterPipelineUnitTests(ITestOutputHelper output)
         {
             _output = output;
         }
@@ -108,30 +108,67 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.UnitTests
             Assert.True(logger.Metrics.All(m => string.Equals(m.Namespace, expectedProvider)));
         }
 
-        private static void Validate(IDictionary<string, JsonElement> values, params (string key, object value)[] expectedValues)
+        [SkippableFact]
+        public async Task TestStopAsync()
         {
-            Assert.NotNull(values);
-            foreach(var expectedValue in expectedValues)
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
-                Assert.True(values.TryGetValue(expectedValue.key, out JsonElement value));
-                //TODO For now this will always be a string
-                Assert.Equal(expectedValue.value, value.GetString());
+                throw new SkipTestException("Unstable test on OSX");
             }
+
+            var logger = new TestMetricsLogger(_output);
+            
+            var expectedCounters = new[] { "cpu-usage", "working-set" };
+            string expectedProvider = "System.Runtime";
+
+            await using (var testExecution = StartTraceeProcess("CounterStopTest"))
+            {
+                //TestRunner should account for start delay to make sure that the diagnostic pipe is available.
+
+                var client = new DiagnosticsClient(testExecution.TestRunner.Pid);
+
+                EventCounterPipeline pipeline = new EventCounterPipeline(client, new EventPipeCounterPipelineSettings
+                {
+                    Duration = Timeout.InfiniteTimeSpan,
+                    CounterGroups = new[]
+                    {
+                        new EventPipeCounterGroup
+                        {
+                            ProviderName = expectedProvider,
+                            CounterNames = expectedCounters
+                        }
+                    },
+                    ProcessId = testExecution.TestRunner.Pid,
+                    RefreshInterval = TimeSpan.FromSeconds(1)
+                }, new[] { logger });
+
+                Task pipelineTask = pipeline.RunAsync(CancellationToken.None);
+
+                //Add a small delay to make sure diagnostic processor had a chance to initialize
+                await Task.Delay(1000);
+                //Send signal to proceed with event collection
+                testExecution.Start();
+
+                try
+                {
+                    //Get metrics for a few seconds and then stop
+                    await Task.Delay(TimeSpan.FromSeconds(5));
+                    await pipeline.StopAsync();
+                }
+                finally
+                {
+                    await pipeline.DisposeAsync();
+                }
+            }
+
+            var actualMetrics = logger.Metrics.Select(m => m.Name).OrderBy(m => m);
+            Assert.Equal(expectedCounters, actualMetrics);
+            Assert.True(logger.Metrics.All(m => string.Equals(m.Namespace, expectedProvider)));
         }
 
         private RemoteTestExecution StartTraceeProcess(string loggerCategory)
         {
             return RemoteTestExecution.StartProcess(CommonHelper.GetTraceePath("EventPipeTracee") + " " + loggerCategory, _output);
-        }
-
-        private sealed class LoggerTestResult
-        {
-            public string Category { get; set; }
-            public string LogLevel { get; set; }
-            public string EventId { get; set; }
-            public string Message { get; set; }
-            public IDictionary<string, JsonElement> Arguments { get; set; }
-            public IDictionary<string, JsonElement> Scopes { get; set; }
         }
     }
 }
