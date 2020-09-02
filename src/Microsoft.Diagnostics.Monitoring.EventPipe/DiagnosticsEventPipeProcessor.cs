@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using Graphs;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.Diagnostics.Tracing;
+using Microsoft.Diagnostics.Tracing.Extensions;
 using Microsoft.Diagnostics.Tracing.Parsers.Clr;
 using Microsoft.Extensions.Logging;
 
@@ -31,8 +32,11 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
         private readonly MonitoringSourceConfiguration _userConfig;
         private readonly Func<Stream, CancellationToken, Task> _streamAvailable;
 
+        private readonly object _lock = new object();
+
+        private TaskCompletionSource<bool> _sessionStarted;
         private EventPipeEventSource _eventPipeSession;
-        private DiagnosticsMonitor _diagnosticsMonitor;
+        private bool _disposed;
 
         public DiagnosticsEventPipeProcessor(
             PipeMode mode,
@@ -57,13 +61,18 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             _streamAvailable = streamAvailable;
             _processInfoCallback = processInfoCallback;
             _counterFilter = metricFilter;
+
+            _sessionStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         }
 
         public async Task Process(DiagnosticsClient client, int pid, TimeSpan duration, CancellationToken token)
         {
+            //No need to guard against reentrancy here, since the calling pipeline does this already.
+            IDisposable registration = token.Register(() => _sessionStarted.TrySetCanceled());
             await await Task.Factory.StartNew(async () =>
             {
                 Task handleEventsTask = Task.CompletedTask;
+                DiagnosticsMonitor diagnosticsMonitor = null;
                 try
                 {
                     MonitoringSourceConfiguration config = null;
@@ -88,45 +97,51 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
                         config = _userConfig;
                     }
 
-                    _diagnosticsMonitor = new DiagnosticsMonitor(config);
-                    Stream sessionStream = await _diagnosticsMonitor.ProcessEvents(client, duration, token);
+                    diagnosticsMonitor = new DiagnosticsMonitor(config);
+                    Stream sessionStream = await diagnosticsMonitor.ProcessEvents(client, duration, token);
 
                     if (_mode == PipeMode.Nettrace)
                     {
-                        //Await the callee, then cleanup the stream;
+                        _sessionStarted.TrySetResult(true);
                         await _streamAvailable(sessionStream, token);
                         return;
                     }
 
-                    _eventPipeSession = new EventPipeEventSource(sessionStream);
+                    var eventPipeSession = new EventPipeEventSource(sessionStream);
 
                     // Allows the event handling routines to stop processing before the duration expires.
-                    Func<Task> stopFunc = () => Task.Run(() => { _diagnosticsMonitor.StopProcessing(); });
+                    Func<Task> stopFunc = () => Task.Run(() => { diagnosticsMonitor.StopProcessing(); });
 
                     if (_mode == PipeMode.Metrics)
                     {
                         // Metrics
-                        HandleEventCounters(_eventPipeSession);
+                        HandleEventCounters(eventPipeSession);
                     }
                     else if (_mode == PipeMode.Logs)
                     {
                         // Logging
-                        HandleLoggingEvents(_eventPipeSession);
+                        HandleLoggingEvents(eventPipeSession);
                     }
                     else if (_mode == PipeMode.GCDump)
                     {
                         // GC
-                        handleEventsTask = HandleGCEvents(_eventPipeSession, pid, stopFunc, token);
+                        handleEventsTask = HandleGCEvents(eventPipeSession, pid, stopFunc, token);
                     }
 
                     else if (_mode == PipeMode.ProcessInfo)
                     {
                         // ProcessInfo
-                        HandleProcessInfo(_eventPipeSession, stopFunc, token);
+                        HandleProcessInfo(eventPipeSession, stopFunc, token);
                     }
 
+                    lock(_lock)
+                    {
+                        _eventPipeSession = eventPipeSession;
+                    }
+                    registration.Dispose();
+                    _sessionStarted.TrySetResult(true);
 
-                    _eventPipeSession.Process();
+                    eventPipeSession.Process();
                     token.ThrowIfCancellationRequested();
                 }
                 catch (DiagnosticsClientException ex)
@@ -135,10 +150,18 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
                 }
                 finally
                 {
-                    _eventPipeSession?.Dispose();
-                    if (_diagnosticsMonitor != null)
+                    registration.Dispose();
+                    EventPipeEventSource session = null;
+                    lock (_lock)
                     {
-                        await _diagnosticsMonitor.DisposeAsync();
+                        session = _eventPipeSession;
+                        _eventPipeSession = null;
+                    }
+
+                    session?.Dispose();
+                    if (diagnosticsMonitor != null)
+                    {
+                        await diagnosticsMonitor.DisposeAsync();
                     }
                 }
 
@@ -151,15 +174,18 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             }, token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         }
 
-        public void StopProcessing()
+        public async Task StopProcessing(CancellationToken token)
         {
-            if (_eventPipeSession != null)
+            await _sessionStarted.Task;
+
+            EventPipeEventSource session = null;
+            lock (_lock)
             {
-                _eventPipeSession.StopProcessing();
+                session = _eventPipeSession;
             }
-            else if (_diagnosticsMonitor != null)
+            if (session != null)
             {
-                _diagnosticsMonitor.StopProcessing();
+                session.StopProcessing();
             }
         }
 
@@ -514,7 +540,26 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
 
         public async ValueTask DisposeAsync()
         {
+            lock (_lock)
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+                _disposed = true;
+            }
+
+            _sessionStarted.TrySetCanceled();
+            try
+            {
+                await _sessionStarted.Task;
+            }
+            catch
+            {
+            }
+
             _eventPipeSession?.Dispose();
+
             foreach (IMetricsLogger logger in _metricLoggers)
             {
                 if (logger is IAsyncDisposable asyncDisposable)

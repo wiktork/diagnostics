@@ -16,9 +16,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
         {
             private readonly MonitoringSourceConfiguration _sourceConfig;
             private readonly TaskCompletionSource<object> _stopProcessingSource;
-            private readonly object _lock = new object();
             private Task _currentTask;
-            private bool _disposed;
 
             public DiagnosticsMonitor(MonitoringSourceConfiguration sourceConfig)
             {
@@ -26,52 +24,37 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
                 _stopProcessingSource = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
             }
 
-            public Task CurrentProcessingTask => _currentTask;
-
             public Task<Stream> ProcessEvents(DiagnosticsClient client, TimeSpan duration, CancellationToken cancellationToken)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                lock (_lock)
+                EventPipeSession session = null;
+                try
                 {
-                    if (_disposed)
-                    {
-                        throw new ObjectDisposedException(nameof(DiagnosticsMonitor));
-                    }
-
-                    if (_currentTask != null)
-                    {
-                        throw new InvalidOperationException("Only one stream processing is allowed");
-                    }
-
-                    EventPipeSession session = null;
-                    try
-                    {
-                        session = client.StartEventPipeSession(_sourceConfig.GetProviders(), _sourceConfig.RequestRundown, _sourceConfig.BufferSizeInMB);
-                    }
-                    catch (EndOfStreamException e)
-                    {
-                        throw new InvalidOperationException("End of stream", e);
-                    }
-                    catch (Exception ex) when (!(ex is OperationCanceledException))
-                    {
-                        throw new InvalidOperationException("Failed to start the event pipe session", ex);
-                    }
-
-                    _currentTask = Task.Run(async () =>
-                    {
-                        using var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                        linkedSource.CancelAfter(duration);
-                        using var _ = linkedSource.Token.Register(() => _stopProcessingSource.TrySetResult(null));
-
-                        // Use TaskCompletionSource instead of Task.Delay with cancellation to avoid
-                        // using exceptions for normal termination of event stream.
-                        await _stopProcessingSource.Task.ConfigureAwait(false);
-                        StopSession(session);
-                    });
-
-                    return Task.FromResult(session.EventStream);
+                    session = client.StartEventPipeSession(_sourceConfig.GetProviders(), _sourceConfig.RequestRundown, _sourceConfig.BufferSizeInMB);
                 }
+                catch (EndOfStreamException e)
+                {
+                    throw new InvalidOperationException("End of stream", e);
+                }
+                catch (Exception ex) when (!(ex is OperationCanceledException))
+                {
+                    throw new InvalidOperationException("Failed to start the event pipe session", ex);
+                }
+
+                _currentTask = Task.Run(async () =>
+                {
+                    using var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    linkedSource.CancelAfter(duration);
+                    using var _ = linkedSource.Token.Register(() => _stopProcessingSource.TrySetResult(null));
+
+                    // Use TaskCompletionSource instead of Task.Delay with cancellation to avoid
+                    // using exceptions for normal termination of event stream.
+                    await _stopProcessingSource.Task.ConfigureAwait(false);
+                    StopSession(session);
+                });
+
+                return Task.FromResult(session.EventStream);
             }
 
             public void StopProcessing()
@@ -105,22 +88,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
 
             public async ValueTask DisposeAsync()
             {
-                if (_disposed)
-                {
-                    return;
-                }
-
-                Task currentTask = null;
-                lock (_lock)
-                {
-                    if (_disposed)
-                    {
-                        return;
-                    }
-                    currentTask = _currentTask;
-                    _currentTask = null;
-                    _disposed = true;
-                }
+                Task currentTask = _currentTask;
                 _stopProcessingSource.TrySetResult(null);
                 if (currentTask != null)
                 {
