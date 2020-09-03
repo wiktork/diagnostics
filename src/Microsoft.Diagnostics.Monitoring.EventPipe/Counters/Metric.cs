@@ -81,5 +81,10 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
         {
             return Value;
         }
+
+        public string GetProvider()
+        {
+            return Namespace;
+        }
     }
 }

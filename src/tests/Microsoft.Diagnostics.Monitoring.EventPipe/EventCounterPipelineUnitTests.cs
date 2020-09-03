@@ -31,7 +31,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.UnitTests
         private sealed class TestMetricsLogger : IMetricsLogger
         {
             private readonly ITestOutputHelper _output;
-            private Dictionary<string, Metric> _metrics = new Dictionary<string, Metric>();
+            private Dictionary<string, ICounterPayload> _metrics = new Dictionary<string, ICounterPayload>();
 
             public TestMetricsLogger(ITestOutputHelper output)
             {
@@ -42,11 +42,11 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.UnitTests
             {
             }
 
-            public IEnumerable<Metric> Metrics => _metrics.Values;
+            public IEnumerable<ICounterPayload> Metrics => _metrics.Values;
 
-            public void LogMetrics(Metric metric)
+            public void LogMetrics(ICounterPayload metric)
             {
-                _metrics[string.Concat(metric.Namespace, "_", metric.Name)] = metric;
+                _metrics[string.Concat(metric.GetProvider(), "_", metric.GetName())] = metric;
             }
         }
 
@@ -102,10 +102,10 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.UnitTests
 
             Assert.True(logger.Metrics.Any());
 
-            var actualMetrics = logger.Metrics.Select(m => m.Name).OrderBy(m => m);
+            var actualMetrics = logger.Metrics.Select(m => m.GetName()).OrderBy(m => m);
 
             Assert.Equal(expectedCounters, actualMetrics);
-            Assert.True(logger.Metrics.All(m => string.Equals(m.Namespace, expectedProvider)));
+            Assert.True(logger.Metrics.All(m => string.Equals(m.GetProvider(), expectedProvider)));
         }
 
         [SkippableFact]
@@ -161,9 +161,9 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.UnitTests
                 }
             }
 
-            var actualMetrics = logger.Metrics.Select(m => m.Name).OrderBy(m => m);
+            var actualMetrics = logger.Metrics.Select(m => m.GetName()).OrderBy(m => m);
             Assert.Equal(expectedCounters, actualMetrics);
-            Assert.True(logger.Metrics.All(m => string.Equals(m.Namespace, expectedProvider)));
+            Assert.True(logger.Metrics.All(m => string.Equals(m.GetProvider(), expectedProvider)));
         }
 
         private RemoteTestExecution StartTraceeProcess(string loggerCategory)

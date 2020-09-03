@@ -138,14 +138,14 @@ namespace Microsoft.Diagnostics.Tools.Counters.Exporters
             UpdateStatus();
         }
 
-        public void LogMetrics(Metric metric)
+        public void LogMetrics(ICounterPayload metric)
         {
             if (_first)
             {
                 PipelineStarted();
                 _first = false;
             }
-            CounterPayloadReceived(metric.Namespace, metric);
+            CounterPayloadReceived(metric.GetProvider(), metric);
         }
 
         public void Dispose()

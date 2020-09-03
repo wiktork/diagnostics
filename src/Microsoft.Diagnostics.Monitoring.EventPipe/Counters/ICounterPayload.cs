@@ -14,5 +14,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
         double GetValue();
         string GetDisplay();
         string GetCounterType();
+
+        string GetProvider();
     }
 }

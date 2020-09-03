@@ -24,7 +24,7 @@ namespace DotnetCounters.UnitTests
             CounterJsonStreamExporter exporter = new CounterJsonStreamExporter(ms, "myProcess.exe");
             for (int i = 0; i < 10; i++)
             {
-                exporter.CounterPayloadReceived("myProvider", TestHelpers.GenerateCounterPayload(true, "incrementingCounterOne", 1.0, 1, "Incrementing Counter One"));
+                exporter.LogMetrics(TestHelpers.GenerateCounterPayload("myProvider", true, "incrementingCounterOne", 1.0, 1, "Incrementing Counter One"));
             }
             exporter.Dispose();
 
@@ -53,7 +53,7 @@ namespace DotnetCounters.UnitTests
             CounterJsonStreamExporter exporter = new CounterJsonStreamExporter(ms, "myProcess.exe");
             for (int i = 0; i < 10; i++)
             {
-                exporter.CounterPayloadReceived("myProvider", TestHelpers.GenerateCounterPayload(false, "counterOne", 1.0, 1, "Counter One"));
+                exporter.LogMetrics(TestHelpers.GenerateCounterPayload("myProvider", false, "counterOne", 1.0, 1, "Counter One"));
             }
             exporter.Dispose();
 
@@ -82,7 +82,7 @@ namespace DotnetCounters.UnitTests
             CounterJsonStreamExporter exporter = new CounterJsonStreamExporter(ms, "myProcess.exe");
             for (int i = 0; i < 20; i++)
             {
-                exporter.CounterPayloadReceived("myProvider", TestHelpers.GenerateCounterPayload(false, "heapSize", (double)i, 0, "Heap Size", "MB"));
+                exporter.LogMetrics(TestHelpers.GenerateCounterPayload("myProvider", false, "heapSize", (double)i, 0, "Heap Size", "MB"));
             }
             exporter.Dispose();
 
@@ -115,7 +115,7 @@ namespace DotnetCounters.UnitTests
 
             for (int i = 0 ; i < 20; i++)
             {
-                exporter.CounterPayloadReceived("myProvider", TestHelpers.GenerateCounterPayload(false, "heapSize", 0, 0, "Heap Size", "MB"));
+                exporter.LogMetrics(TestHelpers.GenerateCounterPayload("myProvider", false, "heapSize", 0, 0, "Heap Size", "MB"));
             }
             exporter.Dispose();
 

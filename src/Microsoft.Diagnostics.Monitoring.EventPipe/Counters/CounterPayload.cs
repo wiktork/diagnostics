@@ -10,17 +10,19 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
 {
     internal class CounterPayload : ICounterPayload
     {
-        public string m_Name;
-        public double m_Value;
-        public string m_DisplayName;
-        public string m_DisplayUnits;
+        private string m_Name;
+        private double m_Value;
+        private string m_DisplayName;
+        private string m_DisplayUnits;
+        private string m_Provider;
 
-        public CounterPayload(IDictionary<string, object> payloadFields)
+        public CounterPayload(string provider, IDictionary<string, object> payloadFields)
         {
             m_Name = payloadFields["Name"].ToString();
             m_Value = (double)payloadFields["Mean"];
             m_DisplayName = payloadFields["DisplayName"].ToString();
             m_DisplayUnits = payloadFields["DisplayUnits"].ToString();
+            m_Provider = provider;
 
             // In case these properties are not provided, set them to appropriate values.
             m_DisplayName = m_DisplayName.Length == 0 ? m_Name : m_DisplayName;
@@ -49,24 +51,27 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
         {
             return "Metric";
         }
+
+        public string GetProvider() => m_Provider;
     }
 
     internal class IncrementingCounterPayload : ICounterPayload
     {
-        public string m_Name;
-        public double m_Value;
-        public string m_DisplayName;
-        public string m_Interval;
-        public string m_DisplayUnits;
+        private string m_Name;
+        private double m_Value;
+        private string m_DisplayName;
+        private string m_Interval;
+        private string m_DisplayUnits;
+        private string m_Provider;
 
-        public IncrementingCounterPayload(IDictionary<string, object> payloadFields, int interval)
+        public IncrementingCounterPayload(string provider, IDictionary<string, object> payloadFields, int interval)
         {
             m_Name = payloadFields["Name"].ToString();
             m_Value = (double)payloadFields["Increment"];
             m_DisplayName = payloadFields["DisplayName"].ToString();
             m_DisplayUnits = payloadFields["DisplayUnits"].ToString();
             m_Interval = interval.ToString() + " sec";
-
+            m_Provider = provider;
             // In case these properties are not provided, set them to appropriate values.
             m_DisplayName = m_DisplayName.Length == 0 ? m_Name : m_DisplayName;
         }
@@ -96,5 +101,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             if (m_DisplayUnits.Length == 0) return "Count";
             return m_DisplayUnits;
         }
+
+        public string GetProvider() => m_Provider;
     }
 }

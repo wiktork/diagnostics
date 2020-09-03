@@ -12,6 +12,7 @@ namespace DotnetCounters.UnitTests
     class TestHelpers
     {
         public static ICounterPayload GenerateCounterPayload(
+            string provider,
             bool isIncrementingCounter,
             string counterName,
             double counterValue,
@@ -29,7 +30,7 @@ namespace DotnetCounters.UnitTests
                     { "DisplayRateTimeScale", displayRateTimeScaleSeconds == 0 ? "" : TimeSpan.FromSeconds(displayRateTimeScaleSeconds).ToString() },
                     { "DisplayUnits", displayUnits },
                 };
-                ICounterPayload payload = new IncrementingCounterPayload(payloadFields, 1);
+                ICounterPayload payload = new IncrementingCounterPayload(provider, payloadFields, 1);
                 return payload;
             }
             else
@@ -41,7 +42,7 @@ namespace DotnetCounters.UnitTests
                     { "DisplayName", displayName },
                     { "DisplayUnits", displayUnits },
                 };
-                ICounterPayload payload = new CounterPayload(payloadFields);
+                ICounterPayload payload = new CounterPayload(provider, payloadFields);
                 return payload;
             }
         }

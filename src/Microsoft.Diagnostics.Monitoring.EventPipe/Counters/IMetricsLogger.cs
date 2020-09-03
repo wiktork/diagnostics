@@ -12,6 +12,6 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
 {
     public interface IMetricsLogger : IDisposable
     {
-        void LogMetrics(Metric metric);
+        void LogMetrics(ICounterPayload metric);
     }
 }

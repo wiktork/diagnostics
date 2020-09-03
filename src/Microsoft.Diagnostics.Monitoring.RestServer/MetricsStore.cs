@@ -31,9 +31,9 @@ namespace Microsoft.Diagnostics.Monitoring
 
         private sealed class MetricKey
         {
-            private Metric _metric;
+            private ICounterPayload _metric;
 
-            public MetricKey(Metric metric)
+            public MetricKey(ICounterPayload metric)
             {
                 _metric = metric;
             }
@@ -41,15 +41,8 @@ namespace Microsoft.Diagnostics.Monitoring
             public override int GetHashCode()
             {
                 HashCode code = new HashCode();
-                code.Add(_metric.Name);
-                foreach(string name in _metric.DimNames)
-                {
-                    code.Add(name);
-                }
-                foreach(string value in _metric.DimValues)
-                {
-                    code.Add(value);
-                }
+                code.Add(_metric.GetProvider());
+                code.Add(_metric.GetName());
                 return code.ToHashCode();
             }
 
@@ -63,7 +56,7 @@ namespace Microsoft.Diagnostics.Monitoring
             }
         }
 
-        private Dictionary<MetricKey, Queue<Metric>> _allMetrics = new Dictionary<MetricKey, Queue<Metric>>();
+        private Dictionary<MetricKey, Queue<ICounterPayload>> _allMetrics = new Dictionary<MetricKey, Queue<ICounterPayload>>();
         private readonly int _maxMetricCount;
 
         public MetricsStore(int maxMetricCount)
@@ -75,14 +68,14 @@ namespace Microsoft.Diagnostics.Monitoring
             _maxMetricCount = maxMetricCount;
         }
 
-        public void AddMetric(Metric metric)
+        public void AddMetric(ICounterPayload metric)
         {
             lock (_allMetrics)
             {
                 var metricKey = new MetricKey(metric);
-                if (!_allMetrics.TryGetValue(metricKey, out Queue<Metric> metrics))
+                if (!_allMetrics.TryGetValue(metricKey, out Queue<ICounterPayload> metrics))
                 {
-                    metrics = new Queue<Metric>();
+                    metrics = new Queue<ICounterPayload>();
                     _allMetrics.Add(metricKey, metrics);
                 }
                 metrics.Enqueue(metric);
@@ -95,13 +88,13 @@ namespace Microsoft.Diagnostics.Monitoring
 
         public async Task SnapshotMetrics(Stream outputStream, CancellationToken token)
         {
-            Dictionary<MetricKey, Queue<Metric>> copy = null;
+            Dictionary<MetricKey, Queue<ICounterPayload>> copy = null;
             lock (_allMetrics)
             {
-                copy = new Dictionary<MetricKey, Queue<Metric>>();
+                copy = new Dictionary<MetricKey, Queue<ICounterPayload>>();
                 foreach (var metricGroup in _allMetrics)
                 {
-                    copy.Add(metricGroup.Key, new Queue<Metric>(metricGroup.Value));
+                    copy.Add(metricGroup.Key, new Queue<ICounterPayload>(metricGroup.Value));
                 }
             }
 
@@ -110,7 +103,7 @@ namespace Microsoft.Diagnostics.Monitoring
 
             foreach (var metricGroup in copy)
             {
-                Metric metricInfo = metricGroup.Value.First();
+                ICounterPayload metricInfo = metricGroup.Value.First();
                 string metricName = GetPrometheusMetric(metricInfo, out string metricValue);
                 string metricType = "gauge";
 
@@ -154,24 +147,24 @@ namespace Microsoft.Diagnostics.Monitoring
             }
         }
 
-        private static string GetPrometheusMetric(Metric metric, out string metricValue)
+        private static string GetPrometheusMetric(ICounterPayload metric, out string metricValue)
         {
             string unitSuffix = string.Empty;
 
-            if ((metric.Unit != null) && (!KnownUnits.TryGetValue(metric.Unit, out unitSuffix)))
+            if ((metric.GetDisplay() != null) && (!KnownUnits.TryGetValue(metric.Unit, out unitSuffix)))
             {
                 //TODO The prometheus data model does not allow certain characters. Units we are not expecting could cause a scrape failure.
                 unitSuffix = "_" + metric.Unit;
             }
 
-            double value = metric.Value;
+            double value = metric.GetValue();
             if (string.Equals(metric.Unit, "MB", StringComparison.OrdinalIgnoreCase))
             {
                 value *= 1_000_000; //Note that the metric uses MB not MiB
             }
 
             metricValue = value.ToString(CultureInfo.InvariantCulture);
-            return FormattableString.Invariant($"{metric.Namespace.Replace(".", string.Empty).ToLowerInvariant()}_{metric.Name.Replace('-', '_')}{unitSuffix}");
+            return FormattableString.Invariant($"{metric.GetProvider().Replace(".", string.Empty).ToLowerInvariant()}_{metric.GetName().Replace('-', '_')}{unitSuffix}");
         }
 
         private static bool CompareMetrics(Metric first, Metric second)

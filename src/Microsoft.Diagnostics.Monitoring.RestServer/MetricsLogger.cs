@@ -19,7 +19,7 @@ namespace Microsoft.Diagnostics.Monitoring
             _store = metricsStore;
         }
 
-        public void LogMetrics(Metric metric)
+        public void LogMetrics(ICounterPayload metric)
         {
             _store.AddMetric(metric);
         }

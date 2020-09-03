@@ -39,7 +39,7 @@ namespace DotnetCounters.UnitTests
             //exporter.PipelineStarted();
             for (int i = 0; i < 100; i++)
             {
-                exporter.CounterPayloadReceived("myProvider", TestHelpers.GenerateCounterPayload(true, "incrementingCounterOne", i, 1, "Incrementing Counter One: " + i.ToString()));
+                exporter.LogMetrics(TestHelpers.GenerateCounterPayload("myProvider", true, "incrementingCounterOne", i, 1, "Incrementing Counter One: " + i.ToString()));
             }
             exporter.Dispose();
 
@@ -70,7 +70,7 @@ namespace DotnetCounters.UnitTests
             CounterCsvStreamExporter exporter = new CounterCsvStreamExporter(ms);
             for (int i = 0; i < 10; i++)
             {
-                exporter.CounterPayloadReceived("myProvider", TestHelpers.GenerateCounterPayload(false, "counterOne", i, 1, "Counter One: " + i.ToString()));
+                exporter.LogMetrics(TestHelpers.GenerateCounterPayload("myProvider", false, "counterOne", i, 1, "Counter One: " + i.ToString()));
             }
             exporter.Dispose();
 
@@ -102,7 +102,7 @@ namespace DotnetCounters.UnitTests
             CounterCsvStreamExporter exporter = new CounterCsvStreamExporter(ms);
             for (int i = 0; i < 100; i++)
             {
-                exporter.CounterPayloadReceived("myProvider", TestHelpers.GenerateCounterPayload(true, "incrementingCounterOne", i, 60, "Incrementing Counter One: " + i.ToString()));
+                exporter.LogMetrics(TestHelpers.GenerateCounterPayload("myProvider", true, "incrementingCounterOne", i, 60, "Incrementing Counter One: " + i.ToString()));
             }
             exporter.Dispose();
 
@@ -133,7 +133,7 @@ namespace DotnetCounters.UnitTests
             CounterCsvStreamExporter exporter = new CounterCsvStreamExporter(ms);
             for (int i = 0; i < 100; i++)
             {
-                exporter.CounterPayloadReceived("myProvider", TestHelpers.GenerateCounterPayload(true, "allocRateGen", i, 60, "Allocation Rate Gen: " + i.ToString(), "MB"));
+                exporter.LogMetrics(TestHelpers.GenerateCounterPayload("myProvider", true, "allocRateGen", i, 60, "Allocation Rate Gen: " + i.ToString(), "MB"));
             }
             exporter.Dispose();
 

@@ -17,7 +17,7 @@ namespace Microsoft.Diagnostics.Monitoring
     /// </summary>
     public interface IMetricsStore : IDisposable
     {
-        void AddMetric(Metric metric);
+        void AddMetric(ICounterPayload metric);
 
         Task SnapshotMetrics(Stream stream, CancellationToken token);
 

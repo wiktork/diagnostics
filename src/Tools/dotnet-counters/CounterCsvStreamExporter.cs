@@ -51,9 +51,9 @@ namespace Microsoft.Diagnostics.Monitoring
             }
         }
 
-        public void LogMetrics(Metric metric)
+        public void LogMetrics(ICounterPayload metric)
         {
-            CounterPayloadReceived(metric.Namespace, metric);
+            CounterPayloadReceived(metric.GetProvider(), metric);
         }
 
         public void Dispose()
