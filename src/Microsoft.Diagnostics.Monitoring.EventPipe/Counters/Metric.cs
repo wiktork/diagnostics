@@ -86,5 +86,20 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
         {
             return Namespace;
         }
+
+        public string GetDisplayName()
+        {
+            throw new NotImplementedException();
+        }
+
+        public string GetUnit()
+        {
+            throw new NotImplementedException();
+        }
+
+        public DateTime GetTimestamp()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

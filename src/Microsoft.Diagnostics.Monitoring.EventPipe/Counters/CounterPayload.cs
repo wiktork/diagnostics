@@ -53,6 +53,21 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
         }
 
         public string GetProvider() => m_Provider;
+
+        public string GetDisplayName()
+        {
+            throw new NotImplementedException();
+        }
+
+        public string GetUnit()
+        {
+            throw new NotImplementedException();
+        }
+
+        public DateTime GetTimestamp()
+        {
+            throw new NotImplementedException();
+        }
     }
 
     internal class IncrementingCounterPayload : ICounterPayload
@@ -103,5 +118,20 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
         }
 
         public string GetProvider() => m_Provider;
+
+        public string GetDisplayName()
+        {
+            throw new NotImplementedException();
+        }
+
+        public string GetUnit()
+        {
+            throw new NotImplementedException();
+        }
+
+        public DateTime GetTimestamp()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

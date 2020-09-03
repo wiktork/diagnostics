@@ -15,6 +15,10 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
         string GetDisplay();
         string GetCounterType();
 
+        //Consider pushing this to extended counter interface
         string GetProvider();
+        string GetDisplayName();
+        string GetUnit();
+        DateTime GetTimestamp();
     }
 }

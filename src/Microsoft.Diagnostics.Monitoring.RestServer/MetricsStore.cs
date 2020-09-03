@@ -109,7 +109,7 @@ namespace Microsoft.Diagnostics.Monitoring
 
                 //TODO Some clr metrics claim to be incrementing, but are really gauges.
 
-                await writer.WriteLineAsync(FormattableString.Invariant($"# HELP {metricName} {metricInfo.DisplayName}"));
+                await writer.WriteLineAsync(FormattableString.Invariant($"# HELP {metricName} {metricInfo.GetDisplayName()}"));
                 await writer.WriteLineAsync(FormattableString.Invariant($"# TYPE {metricName} {metricType}"));
 
                 foreach (var metric in metricGroup.Value)
@@ -121,18 +121,18 @@ namespace Microsoft.Diagnostics.Monitoring
 
         private static async Task WriteMetricDetails(
                     StreamWriter writer,
-                    Metric metric,
+                    ICounterPayload metric,
                     string metricName,
                     string metricValue)
         {
             await writer.WriteAsync(metricName);
-            if (metric.DimNames.Count > 0)
-            {
-                await writer.WriteAsync('{');
-                await WriteNameValuePairs(writer, metric);
-                await writer.WriteAsync('}');
-            }
-            await writer.WriteLineAsync(FormattableString.Invariant($" {metricValue} {new DateTimeOffset(metric.Timestamp).ToUnixTimeMilliseconds()}"));
+            //if (metric.DimNames.Count > 0)
+            //{
+            //    await writer.WriteAsync('{');
+            //    await WriteNameValuePairs(writer, metric);
+            //    await writer.WriteAsync('}');
+            //}
+            await writer.WriteLineAsync(FormattableString.Invariant($" {metricValue} {new DateTimeOffset(metric.GetTimestamp()).ToUnixTimeMilliseconds()}"));
         }
 
         private static async Task WriteNameValuePairs(StreamWriter writer, Metric metric)
@@ -151,14 +151,14 @@ namespace Microsoft.Diagnostics.Monitoring
         {
             string unitSuffix = string.Empty;
 
-            if ((metric.GetDisplay() != null) && (!KnownUnits.TryGetValue(metric.Unit, out unitSuffix)))
+            if ((metric.GetDisplay() != null) && (!KnownUnits.TryGetValue(metric.GetUnit(), out unitSuffix)))
             {
                 //TODO The prometheus data model does not allow certain characters. Units we are not expecting could cause a scrape failure.
-                unitSuffix = "_" + metric.Unit;
+                unitSuffix = "_" + metric.GetUnit();
             }
 
             double value = metric.GetValue();
-            if (string.Equals(metric.Unit, "MB", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(metric.GetUnit(), "MB", StringComparison.OrdinalIgnoreCase))
             {
                 value *= 1_000_000; //Note that the metric uses MB not MiB
             }
@@ -167,27 +167,27 @@ namespace Microsoft.Diagnostics.Monitoring
             return FormattableString.Invariant($"{metric.GetProvider().Replace(".", string.Empty).ToLowerInvariant()}_{metric.GetName().Replace('-', '_')}{unitSuffix}");
         }
 
-        private static bool CompareMetrics(Metric first, Metric second)
+        private static bool CompareMetrics(ICounterPayload first, ICounterPayload second)
         {
-            if (!string.Equals(first.Name, second.Name))
+            if (!string.Equals(first.GetName(), second.GetName()))
             {
                 return false;
             }
-            if (first.DimNames.Count != second.DimNames.Count)
-            {
-                return false;
-            }
-            for (int i = 0; i < first.DimNames.Count; i++)
-            {
-                if (first.DimNames[i] != second.DimNames[i])
-                {
-                    return false;
-                }
-                if (first.DimValues[i] != second.DimValues[i])
-                {
-                    return false;
-                }
-            }
+            //if (first.DimNames.Count != second.DimNames.Count)
+            //{
+            //    return false;
+            //}
+            //for (int i = 0; i < first.DimNames.Count; i++)
+            //{
+            //    if (first.DimNames[i] != second.DimNames[i])
+            //    {
+            //        return false;
+            //    }
+            //    if (first.DimValues[i] != second.DimValues[i])
+            //    {
+            //        return false;
+            //    }
+            //}
             return true;
         }
 
