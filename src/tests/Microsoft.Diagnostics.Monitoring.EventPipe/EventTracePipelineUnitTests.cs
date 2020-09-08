@@ -79,7 +79,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.UnitTests
 
         private RemoteTestExecution StartTraceeProcess(string loggerCategory)
         {
-            return RemoteTestExecution.StartProcess(CommonHelper.GetTraceePath("EventPipeTracee") + " " + loggerCategory, _output);
+            return RemoteTestExecution.StartProcess(CommonHelper.GetTraceePathWithArgs("EventPipeTracee") + " " + loggerCategory, _output);
         }
     }
 }
