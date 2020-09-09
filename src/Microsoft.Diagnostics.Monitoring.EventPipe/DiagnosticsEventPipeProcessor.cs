@@ -83,7 +83,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
                     }
                     else if (_mode == PipeMode.Metrics)
                     {
-                        config = new MetricSourceConfiguration(_metricIntervalSeconds);
+                        config = new MetricSourceConfiguration(_metricIntervalSeconds, _counterFilter.GetProviders());
                     }
                     else if (_mode == PipeMode.GCDump)
                     {

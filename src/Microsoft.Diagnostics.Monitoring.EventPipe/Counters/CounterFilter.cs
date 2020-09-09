@@ -30,6 +30,8 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             _enabledCounters[providerName] = new List<string>(counters ?? Array.Empty<string>());
         }
 
+        public IEnumerable<string> GetProviders() => _enabledCounters.Keys;
+
         public bool Include(string providerName, string counterName)
         {
             if (_enabledCounters.Count == 0)

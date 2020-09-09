@@ -143,7 +143,7 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
                 }
                 if (profile.HasFlag(TraceProfile.Metrics))
                 {
-                    configurations.Add(new MetricSourceConfiguration(metricsIntervalSeconds));
+                    configurations.Add(new MetricSourceConfiguration(metricsIntervalSeconds, Enumerable.Empty<string>()));
                 }
 
                 var aggregateConfiguration = new AggregateSourceConfiguration(configurations.ToArray());

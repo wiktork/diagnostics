@@ -8,63 +8,42 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.Tracing;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 
 namespace Microsoft.Diagnostics.Monitoring.EventPipe
 {
     public sealed class MetricSourceConfiguration : MonitoringSourceConfiguration
     {
-        public MetricSourceConfiguration(int metricIntervalSeconds = 60)
+        private readonly IEnumerable<string> _customProviderNames;
+
+        public MetricSourceConfiguration(int metricIntervalSeconds, IEnumerable<string> customProviderNames)
         {
             MetricIntervalSeconds = metricIntervalSeconds.ToString(CultureInfo.InvariantCulture);
+            _customProviderNames = customProviderNames;
         }
 
         private string MetricIntervalSeconds { get; }
 
         public override IList<EventPipeProvider> GetProviders()
         {
-            var providers = new List<EventPipeProvider>()
+            IEnumerable<string> providers = null;
+            if (_customProviderNames.Any())
             {
-                // Runtime Metrics
-                new EventPipeProvider(
-                    SystemRuntimeEventSourceName,
-                    EventLevel.Informational,
-                    (long)ClrTraceEventParser.Keywords.None,
-                    new Dictionary<string, string>() {
-                            { "EventCounterIntervalSec", MetricIntervalSeconds }
-                    }
-                ),
-                new EventPipeProvider(
-                    MicrosoftAspNetCoreHostingEventSourceName,
-                    EventLevel.Informational,
-                    (long)ClrTraceEventParser.Keywords.None,
-                    new Dictionary<string, string>() {
-                        { "EventCounterIntervalSec", MetricIntervalSeconds }
-                    }
-                ),
-                new EventPipeProvider(
-                    GrpcAspNetCoreServer,
-                    EventLevel.Informational,
-                    (long)ClrTraceEventParser.Keywords.None,
-                    new Dictionary<string, string>() {
-                        { "EventCounterIntervalSec", MetricIntervalSeconds }
-                    }
-                ),
-                
-                // Application Metrics
-                //new EventPipeProvider(
-                //    applicationName,
-                //    EventLevel.Informational,
-                //    (long)ClrTraceEventParser.Keywords.None,
-                //    new Dictionary<string, string>() {
-                //        { "EventCounterIntervalSec", MetricIntervalSeconds }
-                //    }
-                //),
-            };
+                providers = _customProviderNames;
+            }
+            else
+            {
+                providers = new[] { SystemRuntimeEventSourceName, MicrosoftAspNetCoreHostingEventSourceName, GrpcAspNetCoreServer };
+            }
 
-            return providers;
+            return providers.Select((string provider) => new EventPipeProvider(provider,
+               EventLevel.Informational,
+               (long)ClrTraceEventParser.Keywords.None,
+                   new Dictionary<string, string>() {
+                        { "EventCounterIntervalSec", MetricIntervalSeconds } 
+                   }
+               )).ToList();
         }
-
-
     }
 }
