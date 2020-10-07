@@ -78,7 +78,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.UnitTests
 
                 await using EventCounterPipeline pipeline = new EventCounterPipeline(client, new EventPipeCounterPipelineSettings
                 {
-                    Duration = TimeSpan.FromSeconds(10),
+                    Duration = TimeSpan.FromSeconds(2),
                     CounterGroups = new[]
                     {
                         new EventPipeCounterGroup
@@ -94,10 +94,12 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.UnitTests
                 Task pipelineTask = pipeline.RunAsync(CancellationToken.None);
 
                 //Add a small delay to make sure diagnostic processor had a chance to initialize
-                await Task.Delay(1000);
+                //await Task.Delay(1000);
                 //Send signal to proceed with event collection
                 testExecution.Start();
 
+                testExecution.WaitForSignal();
+                var stopTask = pipeline.StopAsync();
                 await pipelineTask;
             }
 
@@ -146,11 +148,11 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.UnitTests
                 Task pipelineTask = pipeline.RunAsync(CancellationToken.None);
 
                 //Add a small delay to make sure diagnostic processor had a chance to initialize
-                await Task.Delay(1000);
+                //await Task.Delay(1000);
                 //Send signal to proceed with event collection
                 testExecution.Start();
-
-                await Task.Delay(TimeSpan.FromSeconds(5));
+                testExecution.WaitForSignal();
+                //await Task.Delay(TimeSpan.FromSeconds(5));
                 await pipeline.StopAsync();
             }
 

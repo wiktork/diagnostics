@@ -34,12 +34,26 @@ namespace Microsoft.Diagnostics.NETCore.Client.UnitTests
             SendSignal();
         }
 
+        public void WaitForSignal()
+        {
+            ReceiveSignal();
+        }
+
         private void SendSignal()
         {
             //We cannot use named synchronization primitives since they do not work across processes
             //on Linux. Use redirected standard input instead.
             TestRunner.StandardInput.Write('0');
             TestRunner.StandardInput.Flush();
+        }
+
+        private void ReceiveSignal()
+        {
+            var result = TestRunner.StandardOutput.ReadLine();
+            if (string.Equals(result, "1"))
+            {
+                return;
+            }
         }
 
         public static RemoteTestExecution StartProcess(string commandLine, ITestOutputHelper outputHelper, string reversedServerTransportName = null)
@@ -62,18 +76,18 @@ namespace Microsoft.Diagnostics.NETCore.Client.UnitTests
             {
                 try
                 {
-                    Task<string> stdOutputTask = output.ReadToEndAsync();
+                    //Task<string> stdOutputTask = output.ReadToEndAsync();
                     Task<string> stdErrorTask = error.ReadToEndAsync();
 
                     try
                     {
-                        string result = await stdOutputTask;
-                        outputHelper.WriteLine("Stdout:");
-                        if (result != null)
-                        {
-                            outputHelper.WriteLine(result);
-                        }
-                        result = await stdErrorTask;
+                        //string result = await stdOutputTask;
+                        //outputHelper.WriteLine("Stdout:");
+                        //if (result != null)
+                        //{
+                        //    outputHelper.WriteLine(result);
+                        //}
+                        string result = await stdErrorTask;
                         outputHelper.WriteLine("Stderr:");
                         if (result != null)
                         {

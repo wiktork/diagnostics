@@ -59,12 +59,12 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.UnitTests
                 Task pipelineTask = pipeline.RunAsync(CancellationToken.None);
 
                 //Add a small delay to make sure diagnostic processor had a chance to initialize
-                await Task.Delay(1000);
+                //await Task.Delay(1000);
                 //Send signal to proceed with event collection
                 testExecution.Start();
-
+                testExecution.WaitForSignal();
                 //Get cpu for a few seconds and then stop
-                await Task.Delay(TimeSpan.FromSeconds(5));
+                //await Task.Delay(TimeSpan.FromSeconds(5));
                 await pipeline.StopAsync();
             }
 
