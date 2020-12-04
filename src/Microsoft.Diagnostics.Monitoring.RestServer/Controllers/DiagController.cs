@@ -26,6 +26,7 @@ namespace Microsoft.Diagnostics.Monitoring.RestServer.Controllers
     [Route("")] // Root
     [ApiController]
     [HostRestriction]
+    [ApiKeyFilter]
     public class DiagController : ControllerBase
     {
         private const TraceProfile DefaultTraceProfiles = TraceProfile.Cpu | TraceProfile.Http | TraceProfile.Metrics;
