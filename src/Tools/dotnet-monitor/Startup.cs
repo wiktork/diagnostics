@@ -81,9 +81,13 @@ namespace Microsoft.Diagnostics.Tools.Monitor
         public void Configure(
             IApplicationBuilder app,
             IWebHostEnvironment env,
-            ExperimentalToolLogger logger)
+            ExperimentalToolLogger logger, IAuthOptions options)
         {
             logger.LogExperimentMessage();
+            if (options.KeyAuthenticationMode == KeyAuthenticationMode.NoAuth)
+            {
+                logger.LogNoAuthMessage();
+            }
 
             if (env.IsDevelopment())
             {
@@ -93,6 +97,9 @@ namespace Microsoft.Diagnostics.Tools.Monitor
             {
                 app.UseHsts();
             }
+
+            app.UseAuthentication();
+            app.UseAuthorization();
 
             CorsConfiguration corsConfiguration = new CorsConfiguration();
             Configuration.Bind(nameof(CorsConfiguration), corsConfiguration);
