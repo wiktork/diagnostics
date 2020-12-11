@@ -94,6 +94,9 @@ namespace Microsoft.Diagnostics.Tools.Monitor
                 app.UseHsts();
             }
 
+            app.UseAuthentication();
+            app.UseAuthorization();
+
             CorsConfiguration corsConfiguration = new CorsConfiguration();
             Configuration.Bind(nameof(CorsConfiguration), corsConfiguration);
             if (!string.IsNullOrEmpty(corsConfiguration.AllowedOrigins))
