@@ -25,6 +25,14 @@ namespace Microsoft.Diagnostics.Tools.Monitor
 
     class Program
     {
+        private static Command GenerateApiKeyCommand() =>
+            new Command(
+                name: "generatekey",
+                description: "Generate api key and hash for authentication")
+            {
+                CommandHandler.Create<CancellationToken, IConsole>(new GenerateApiKeyCommandHandler().GenerateApiKey)
+            };
+
         private static Command CollectCommand() =>
               new Command(
                   name: "collect",
@@ -82,6 +90,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor
         {
             var parser = new CommandLineBuilder()
                 .AddCommand(CollectCommand())
+                .AddCommand(GenerateApiKeyCommand())
                 .UseDefaults()
                 .Build();
             return parser.InvokeAsync(args);
