@@ -125,6 +125,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor
                         services.ConfigureMetrics(context.Configuration);
                     }
                     services.AddSingleton<ExperimentalToolLogger>();
+                    services.ConfigureApiKeyConfiguration(context.Configuration);
                 })
                 .ConfigureLogging(builder =>
                 {

@@ -30,10 +30,12 @@ namespace Microsoft.Diagnostics.Tools.Monitor
 
             byte[] hash = hashAlgorithm.ComputeHash(secret);
 
+            Console.Out.Write("Base64Secret ");
             console.Out.WriteLine(Convert.ToBase64String(secret));
-            foreach(byte b in hash)
+            Console.Out.Write("HashedSecret ");
+            foreach (byte b in hash)
             {
-                console.Out.Write(b.ToString("X"));
+                console.Out.Write(b.ToString("X2"));
             }
             console.Out.WriteLine();
 

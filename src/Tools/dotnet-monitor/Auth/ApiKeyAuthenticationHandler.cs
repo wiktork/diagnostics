@@ -14,6 +14,7 @@ using Microsoft.Net.Http.Headers;
 using System;
 using System.Buffers.Text;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http.Headers;
 using System.Security.Claims;
@@ -28,7 +29,6 @@ namespace Microsoft.Diagnostics.Tools.Monitor
     /// </summary>
     internal sealed class ApiKeyAuthenticationHandler : AuthenticationHandler<ApiKeyAuthenticationHandlerOptions>
     {
-        private const string AuthConfigurationKey = "ApiAuthentication:ApiKeyHash";
 
         public ApiKeyAuthenticationHandler(IOptionsMonitor<ApiKeyAuthenticationHandlerOptions> options, ILoggerFactory loggerFactory, UrlEncoder encoder, ISystemClock clock)
             : base(options, loggerFactory, encoder, clock)
@@ -67,8 +67,8 @@ namespace Microsoft.Diagnostics.Tools.Monitor
             using HashAlgorithm algorithm = SHA256.Create();
             byte[] hashedSecret = algorithm.ComputeHash(secret);
 
-            IConfiguration config = Context.RequestServices.GetRequiredService<IConfiguration>();
-            string apiKeyHash = config.GetValue<string>(AuthConfigurationKey);
+            IOptions<ApiAuthenticationOptions> config = Context.RequestServices.GetRequiredService<IOptions<ApiAuthenticationOptions>>();
+            string apiKeyHash = config.Value?.ApiKeyHash;
 
             if (apiKeyHash == null)
             {
@@ -79,7 +79,11 @@ namespace Microsoft.Diagnostics.Tools.Monitor
             byte[] apiKeyHashBytes = new byte[apiKeyHash.Length / 2];
             for (int i = 0; i < apiKeyHash.Length; i += 2)
             {
-                apiKeyHashBytes[i / 2] = byte.Parse(apiKeyHash.AsSpan(i, 2), System.Globalization.NumberStyles.HexNumber);
+                if (!byte.TryParse(apiKeyHash.AsSpan(i, 2), System.Globalization.NumberStyles.HexNumber, provider: NumberFormatInfo.InvariantInfo, result: out byte resultByte))
+                {
+                    return Task.FromResult(AuthenticateResult.Fail("Invalid Api Key hash"));
+                }
+                apiKeyHashBytes[i / 2] = resultByte;
             }
 
             if (hashedSecret.SequenceEqual(apiKeyHashBytes))
