@@ -131,6 +131,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor
                 {
                     // Always allow the experimental tool message to be logged
                     ExperimentalToolLogger.AddLogFilter(builder);
+                    builder.AddFilter(typeof(ApiKeyAuthenticationHandler).FullName, LogLevel.Information);
                 })
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
