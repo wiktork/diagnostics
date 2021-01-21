@@ -3,6 +3,9 @@
 // See the LICENSE file in the project root for more information.
 
 using Microsoft.AspNetCore;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Negotiate;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
@@ -20,6 +23,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Runtime.InteropServices;
+using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -70,12 +74,59 @@ namespace Microsoft.Diagnostics.Tools.Monitor
                     builder.AddJsonFile(UserSettingsPath, optional: true, reloadOnChange: true);
                     builder.AddJsonFile(SharedSettingsPath, optional: true, reloadOnChange: true);
 
-                    builder.AddKeyPerFile(SharedConfigDirectoryPath, optional: true);
+                    //HACK Workaround for https://github.com/dotnet/runtime/issues/36091
+                    //KeyPerFile provider uses a file system watcher to trigger changes.
+                    //The watcher does not follow symlinks inside the watched directory, such as mounted files
+                    //in Kubernetes.
+                    //We get around this by watching the target folder of the symlink instead.
+                    //See https://github.com/kubernetes/kubernetes/master/pkg/volume/util/atomic_writer.go
+                    string path = SharedConfigDirectoryPath;
+                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                    {
+                        string symlinkTarget = Path.Combine(SharedConfigDirectoryPath, "..data");
+                        if (Directory.Exists(symlinkTarget))
+                        {
+                            path = symlinkTarget;
+                        }
+                    }
+
+                    builder.AddKeyPerFile(path, optional: true, reloadOnChange: true);
                     builder.AddEnvironmentVariables(ConfigPrefix);
                 })
                 .ConfigureServices((HostBuilderContext context, IServiceCollection services) =>
                 {
                     //TODO Many of these service additions should be done through extension methods
+
+                    //Add support for Authentication and Authorization.
+                    AuthenticationBuilder authBuilder = services.AddAuthentication(options =>
+                    {
+                        options.DefaultAuthenticateScheme = AuthConstants.ApiKeySchema;
+                        options.DefaultChallengeScheme = AuthConstants.ApiKeySchema;
+                    })
+                    .AddScheme<ApiKeyAuthenticationHandlerOptions, ApiKeyAuthenticationHandler>(AuthConstants.ApiKeySchema, _ => { });
+
+                    var authSchemas = new List<string> { AuthConstants.ApiKeySchema };
+
+                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                    {
+                        //On Windows add Negotiate package. This will use NTLM to perform Windows Authentication.
+                        authBuilder.AddNegotiate();
+                        authSchemas.Add(AuthConstants.NegotiateSchema);
+                    }
+
+                    //Apply Authorization Policy for NTLM. Without Authorization, any user with a valid login/password will be authorized. We only
+                    //want to authorize the same user that is running dotnet-monitor, at least for now.
+                    //Note this policy applies to both Authorization schemas.
+                    services.AddAuthorization(authOptions => {
+                        authOptions.AddPolicy(AuthConstants.PolicyName, (builder) =>
+                        {
+                            builder.AddRequirements(new AuthorizedUserRequirement());
+                            builder.RequireAuthenticatedUser();
+                            builder.AddAuthenticationSchemes(authSchemas.ToArray());
+                        });
+                    });
+                    services.AddSingleton<IAuthorizationHandler, UserAuthorizationHandler>();
+
                     services.Configure<DiagnosticPortOptions>(context.Configuration.GetSection(DiagnosticPortOptions.ConfigurationKey));
                     services.AddSingleton<IEndpointInfoSource, FilteredEndpointInfoSource>();
                     services.AddHostedService<FilteredEndpointInfoSourceHostedService>();
@@ -88,6 +139,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor
                 {
                     // Always allow the experimental tool message to be logged
                     ExperimentalToolLogger.AddLogFilter(builder);
+                    builder.AddFilter(typeof(ApiKeyAuthenticationHandler).FullName, LogLevel.Information);
                 })
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
