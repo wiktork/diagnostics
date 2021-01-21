@@ -67,9 +67,13 @@ namespace Microsoft.Diagnostics.Tools.Monitor
             using HashAlgorithm algorithm = SHA256.Create();
             byte[] hashedSecret = algorithm.ComputeHash(secret);
 
-            IOptions<ApiAuthenticationOptions> config = Context.RequestServices.GetRequiredService<IOptions<ApiAuthenticationOptions>>();
-            string apiKeyHash = config.Value?.ApiKeyHash;
+            //HACK IOptionsMonitor and similiar do not properly update here even though the underlying
+            //configuration is updated. We get the value directly from IConfiguration.
 
+            var authenticationOptions = new ApiAuthenticationOptions();
+            IConfiguration configService = Context.RequestServices.GetRequiredService<IConfiguration>();
+            configService.Bind(ApiAuthenticationOptions.ConfigurationKey, authenticationOptions);
+            string apiKeyHash = authenticationOptions.ApiKeyHash;
             if (apiKeyHash == null)
             {
                 return Task.FromResult(AuthenticateResult.Fail("Server does not contain Api Key"));

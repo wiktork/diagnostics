@@ -78,7 +78,23 @@ namespace Microsoft.Diagnostics.Tools.Monitor
                     builder.AddJsonFile(UserSettingsPath, optional: true, reloadOnChange: true);
                     builder.AddJsonFile(SharedSettingsPath, optional: true, reloadOnChange: true);
 
-                    builder.AddKeyPerFile(SharedConfigDirectoryPath, optional: true);
+                    //HACK Workaround for https://github.com/dotnet/runtime/issues/36091
+                    //KeyPerFile provider uses a file system watcher to trigger changes.
+                    //The watcher does not follow symlinks inside the watched directory, such as mounted files
+                    //in Kubernetes.
+                    //We get around this by watching the target folder of the symlink instead.
+                    //See https://github.com/kubernetes/kubernetes/master/pkg/volume/util/atomic_writer.go
+                    string path = SharedConfigDirectoryPath;
+                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                    {
+                        string symlinkTarget = Path.Combine(SharedConfigDirectoryPath, "..data");
+                        if (Directory.Exists(symlinkTarget))
+                        {
+                            path = symlinkTarget;
+                        }
+                    }
+
+                    builder.AddKeyPerFile(path, optional: true, reloadOnChange: true);
                     builder.AddEnvironmentVariables(ConfigPrefix);
                 })
                 .ConfigureServices((HostBuilderContext context, IServiceCollection services) =>
@@ -125,7 +141,6 @@ namespace Microsoft.Diagnostics.Tools.Monitor
                         services.ConfigureMetrics(context.Configuration);
                     }
                     services.AddSingleton<ExperimentalToolLogger>();
-                    services.ConfigureApiKeyConfiguration(context.Configuration);
                 })
                 .ConfigureLogging(builder =>
                 {
