@@ -65,8 +65,12 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
                 var factoryId = (int)traceEvent.PayloadByName("FactoryID");
                 var categoryName = (string)traceEvent.PayloadByName("LoggerName");
 
-                stack.Pop();
-                logActivities.Remove(traceEvent.ActivityID);
+                //If we begin collection in the middle of a request, we can receive a stop without having a start.
+                if (stack.Count > 0)
+                {
+                    stack.Pop();
+                    logActivities.Remove(traceEvent.ActivityID);
+                }
             });
 
             eventSource.Dynamic.AddCallbackForProviderEvent(LoggingSourceConfiguration.MicrosoftExtensionsLoggingProviderName, "MessageJson", (traceEvent) =>
@@ -109,6 +113,8 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
                     }
                 }
 
+                IProvidesTimestamp providesTimestamp = logger as IProvidesTimestamp;
+
                 try
                 {
                     if (exceptionJson != "{}")
@@ -118,6 +124,14 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
                     }
 
                     var message = JsonSerializer.Deserialize<JsonElement>(argsJson);
+
+                    //We want to propagate the timestamp to the underlying logger, but that's not part of the ILogger interface.
+                    //CONSIDER An alternate approach here is to duplicate FormattedLogValues and pass the interface as part of the TState.
+                    if (providesTimestamp != null)
+                    {
+                        providesTimestamp.Timestamp = traceEvent.TimeStamp;
+                    }
+
                     if (message.TryGetProperty("{OriginalFormat}", out var formatElement))
                     {
                         var formatString = formatElement.GetString();
@@ -142,6 +156,10 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
                 finally
                 {
                     scopes.ForEach(d => d.Dispose());
+                    if (providesTimestamp != null)
+                    {
+                        providesTimestamp.Timestamp = null;
+                    }
                 }
             });
 
