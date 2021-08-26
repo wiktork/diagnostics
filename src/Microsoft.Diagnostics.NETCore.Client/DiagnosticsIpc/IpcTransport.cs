@@ -251,7 +251,7 @@ namespace Microsoft.Diagnostics.NETCore.Client
         {
             try
             {
-                var process = Process.GetProcessById(_pid);
+                using var _ = Process.GetProcessById(_pid);
             }
             catch (ArgumentException)
             {
