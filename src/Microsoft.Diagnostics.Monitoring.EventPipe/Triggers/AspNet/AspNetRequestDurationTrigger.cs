@@ -40,7 +40,6 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.Triggers.AspNet
             {
                 _lastHeartbeatProcessed = timestamp;
                 List<string> requestsToRemove = new();
-                bool trigger = false;
 
                 foreach (KeyValuePair<string, DateTime> request in _requests)
                 {
@@ -54,7 +53,6 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.Triggers.AspNet
                         requestsToRemove.Add(request.Key);
                         if (_window.Count >= Settings.RequestCount)
                         {
-                            trigger = true;
                             break;
                         }
                     }
@@ -65,10 +63,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.Triggers.AspNet
                     _requests.Remove(requestId);
                 }
 
-                if (trigger)
-                {
-                    return true;
-                }
+                return _window.Count >= Settings.RequestCount;
             }
 
             return false;
@@ -87,12 +82,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.Triggers.AspNet
                 _window.AddDataPoint(timestamp);
             }
 
-            if (_window.Count >= Settings.RequestCount)
-            {
-                return true;
-            }
-
-            return false;
+            return _window.Count >= Settings.RequestCount;
         }
     }
 }
