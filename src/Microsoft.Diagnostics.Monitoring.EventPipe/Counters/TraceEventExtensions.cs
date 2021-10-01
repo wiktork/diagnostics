@@ -22,10 +22,11 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
                 //Make sure we are part of the requested series. If multiple clients request metrics, all of them get the metrics.
                 string series = payloadFields["Series"].ToString();
                 string counterName = payloadFields["Name"].ToString();
-                if (!filter.IsIncluded(traceEvent.ProviderName, counterName, GetInterval(series)))
+                if (!filter.IsIncluded(traceEvent.ProviderName, counterName))
                 {
                     return false;
                 }
+                int interval = GetInterval(series);
 
                 float intervalSec = (float)payloadFields["IntervalSec"];
                 string displayName = payloadFields["DisplayName"].ToString();

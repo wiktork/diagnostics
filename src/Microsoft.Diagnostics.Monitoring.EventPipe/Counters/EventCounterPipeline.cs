@@ -24,7 +24,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
 
             if (settings.CounterGroups.Length > 0)
             {
-                _filter = new CounterFilter(CounterIntervalSeconds);
+                _filter = new CounterFilter();
                 foreach (var counterGroup in settings.CounterGroups)
                 {
                     _filter.AddFilter(counterGroup.ProviderName, counterGroup.CounterNames);
@@ -32,7 +32,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             }
             else
             {
-                _filter = CounterFilter.AllCounters(CounterIntervalSeconds);
+                _filter = CounterFilter.AllCounters();
             }
         }
 

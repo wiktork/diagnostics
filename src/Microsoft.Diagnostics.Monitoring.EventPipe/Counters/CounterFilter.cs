@@ -11,16 +11,14 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
     internal sealed class CounterFilter
     {
         private Dictionary<string, List<string>> _enabledCounters;
-        private int _intervalMilliseconds;
 
-        public static CounterFilter AllCounters(int counterIntervalSeconds)
-            => new CounterFilter(counterIntervalSeconds);
+        public static CounterFilter AllCounters()
+            => new CounterFilter();
 
-        public CounterFilter(int intervalSeconds)
+        public CounterFilter()
         {
             //Provider names are not case sensitive, but counter names are.
             _enabledCounters = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-            _intervalMilliseconds = intervalSeconds * 1000;
         }
 
         // Called when we want to enable all counters under a provider name.
@@ -36,12 +34,8 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
 
         public IEnumerable<string> GetProviders() => _enabledCounters.Keys;
 
-        public bool IsIncluded(string providerName, string counterName, int interval)
+        public bool IsIncluded(string providerName, string counterName)
         {
-            if (_intervalMilliseconds != interval)
-            {
-                return false;
-            }
             if (_enabledCounters.Count == 0)
             {
                 return true;
