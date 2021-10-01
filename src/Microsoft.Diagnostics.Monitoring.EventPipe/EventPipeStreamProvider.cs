@@ -29,7 +29,15 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             EventPipeSession session = null;
             try
             {
-                session = await client.StartEventPipeSessionAsync(_sourceConfig.GetProviders(), _sourceConfig.RequestRundown, _sourceConfig.BufferSizeInMB, cancellationToken).ConfigureAwait(false);
+                //Reconsile counter providers against existing provider timers.
+                var providers = _sourceConfig.GetProviders();
+
+                foreach(var provider in providers)
+                {
+
+                }
+
+                session = await client.StartEventPipeSessionAsync(providers, _sourceConfig.RequestRundown, _sourceConfig.BufferSizeInMB, cancellationToken).ConfigureAwait(false);
             }
             catch (EndOfStreamException e)
             {

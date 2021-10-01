@@ -36,6 +36,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.Counters
             //OR Force all counter values to be relatively fixed.
             //OR A True mux. No matter the counter, sample every 5 seconds with 1 session.we broadcast the counters to sesssions as their interval
             //approaches. all data would have to be aggregated at every 5 second interval on a per provider per counter basis.
+            return true;
         }
     }
 }
