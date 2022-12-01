@@ -22,6 +22,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
+using Microsoft.Diagnostics.Monitoring.EventPipe;
 
 namespace Microsoft.Diagnostics.Tools.Counters
 {
@@ -167,7 +168,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
             // the value might be an empty string indicating no measurement was provided this collection interval
             if (double.TryParse(rateText, out double rate))
             {
-                CounterPayload payload = new RatePayload(meterName, instrumentName, null, unit, tags, rate, _interval, obj.TimeStamp);
+                CounterPayload payload = new RatePayload(meterName, instrumentName, null, unit, new Dictionary<string, string>(/*tags*/), rate, _interval, obj.TimeStamp);
                 _renderer.CounterPayloadReceived(payload, _pauseCmdSet);
             }
 
@@ -191,13 +192,13 @@ namespace Microsoft.Diagnostics.Tools.Counters
             // the value might be an empty string indicating no measurement was provided this collection interval
             if (double.TryParse(lastValueText, out double lastValue))
             {
-                CounterPayload payload = new GaugePayload(meterName, instrumentName, null, unit, tags, lastValue, obj.TimeStamp);
+                CounterPayload payload = new GaugePayload(meterName, instrumentName, null, unit, new Dictionary<string, string>(/*tags*/), lastValue, obj.TimeStamp);
                 _renderer.CounterPayloadReceived(payload, _pauseCmdSet);
             }
             else
             {
                 // for observable instruments we assume the lack of data is meaningful and remove it from the UI
-                CounterPayload payload = new RatePayload(meterName, instrumentName, null, unit, tags, 0, _interval, obj.TimeStamp);
+                CounterPayload payload = new RatePayload(meterName, instrumentName, null, unit, new Dictionary<string, string>(/*tags*/), 0, _interval, obj.TimeStamp);
                 _renderer.CounterStopped(payload);
             }
         }
@@ -219,7 +220,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
             KeyValuePair<double, double>[] quantiles = ParseQuantiles(quantilesText);
             foreach((double key, double val) in quantiles)
             {
-                CounterPayload payload = new PercentilePayload(meterName, instrumentName, null, unit, AppendQuantile(tags, $"Percentile={key*100}"), val, obj.TimeStamp);
+                CounterPayload payload = new PercentilePayload(meterName, instrumentName, null, unit, new Dictionary<string, string>(/*AppendQuantile(tags, $"Percentile={key*100}")*/), val, obj.TimeStamp);
                 _renderer.CounterPayloadReceived(payload, _pauseCmdSet);
             }
         }
@@ -400,7 +401,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                 while (_bufferedEvents.Count != 0)
                 {
                     CounterPayload payload = _bufferedEvents.Peek();
-                    ProviderEventState providerEventState = _providerEventStates[payload.ProviderName];
+                    ProviderEventState providerEventState = _providerEventStates[payload.Provider];
                     if (providerEventState.InstrumentEventObserved)
                     {
                         _bufferedEvents.Dequeue();
