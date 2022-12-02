@@ -10,7 +10,7 @@ using System.Text;
 
 namespace Microsoft.Diagnostics.Tools.Counters.Exporters
 {
-    class JSONExporter : ICounterRenderer
+    class JSONExporter : CounterRendererAdapter
     {
         private object _lock = new object();
         private string _output;
@@ -30,7 +30,7 @@ namespace Microsoft.Diagnostics.Tools.Counters.Exporters
             }
             _processName = processName;
         }
-        public void Initialize()
+        public override void Initialize()
         {
             if (File.Exists(_output))
             {
@@ -48,22 +48,22 @@ namespace Microsoft.Diagnostics.Tools.Counters.Exporters
             }
         }
 
-        public void EventPipeSourceConnected()
+        public override void EventPipeSourceConnected()
         {
             Console.WriteLine("Starting a counter session. Press Q to quit.");
         }
 
-        public void SetErrorText(string errorText)
+        public override void SetErrorText(string errorText)
         {
             Console.WriteLine(errorText);
         }
 
-        public void ToggleStatus(bool paused)
+        public override void ToggleStatus(bool paused)
         {
             // Do nothing
         }
 
-        public void CounterPayloadReceived(CounterPayload payload, bool _)
+        public override void CounterPayloadReceived(CounterPayload payload, bool _)
         {
             lock (_lock)
             {
@@ -82,9 +82,9 @@ namespace Microsoft.Diagnostics.Tools.Counters.Exporters
             }
         }
 
-        public void CounterStopped(CounterPayload payload) { }
+        public override void CounterStopped(CounterPayload payload) { }
 
-        public void Stop()
+        public override void Stop()
         {
             lock (_lock)
             {

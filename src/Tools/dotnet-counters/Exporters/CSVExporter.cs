@@ -10,7 +10,7 @@ using System.Text;
 
 namespace Microsoft.Diagnostics.Tools.Counters.Exporters
 {
-    class CSVExporter : ICounterRenderer
+    class CSVExporter : CounterRendererAdapter
     {
         private object _lock = new object(); // protects the StringBuilder instance.
         private string _output;
@@ -31,7 +31,7 @@ namespace Microsoft.Diagnostics.Tools.Counters.Exporters
             }
         }
 
-        public void Initialize()
+        public override void Initialize()
         {
             if (File.Exists(_output))
             {
@@ -45,22 +45,22 @@ namespace Microsoft.Diagnostics.Tools.Counters.Exporters
             }
         }
 
-        public void EventPipeSourceConnected()
+        public override void EventPipeSourceConnected()
         {
             Console.WriteLine("Starting a counter session. Press Q to quit.");
         }
 
-        public void SetErrorText(string errorText)
+        public override void SetErrorText(string errorText)
         {
             Console.WriteLine(errorText);
         }
 
-        public void ToggleStatus(bool paused)
+        public override void ToggleStatus(bool paused)
         {
             // Do nothing
         }
 
-        public void CounterPayloadReceived(CounterPayload payload, bool _)
+        public override void CounterPayloadReceived(CounterPayload payload, bool _)
         {
             lock (_lock)
             {
@@ -84,9 +84,9 @@ namespace Microsoft.Diagnostics.Tools.Counters.Exporters
             }
         }
 
-        public void CounterStopped(CounterPayload payload) { }
+        public override void CounterStopped(CounterPayload payload) { }
 
-        public void Stop()
+        public override void Stop()
         {
             string outputString;
             // Append all the remaining text to the file.

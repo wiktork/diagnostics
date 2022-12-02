@@ -15,7 +15,7 @@ namespace Microsoft.Diagnostics.Tools.Counters.Exporters
     /// ConsoleWriter is an implementation of ICounterRenderer for rendering the counter values in real-time
     /// to the console. This is the renderer for the `dotnet-counters monitor` command.
     /// </summary>
-    public class ConsoleWriter : ICounterRenderer
+    public class ConsoleWriter : CounterRendererAdapter
     {
         /// <summary>Information about an observed provider.</summary>
         private class ObservedProvider
@@ -79,17 +79,17 @@ namespace Microsoft.Diagnostics.Tools.Counters.Exporters
             this._useAnsi = useAnsi;
         }
 
-        public void Initialize()
+        public override void Initialize()
         {
             AssignRowsAndInitializeDisplay();
         }
 
-        public void EventPipeSourceConnected()
+        public override void EventPipeSourceConnected()
         {
             // Do nothing
         }
 
-        public void SetErrorText(string errorText)
+        public override void SetErrorText(string errorText)
         {
             _errorText = errorText;
             AssignRowsAndInitializeDisplay();
@@ -187,7 +187,7 @@ namespace Microsoft.Diagnostics.Tools.Counters.Exporters
             _maxRow = Math.Max(_maxRow, row);
         }
 
-        public void ToggleStatus(bool pauseCmdSet)
+        public override void ToggleStatus(bool pauseCmdSet)
         {
             if (_paused == pauseCmdSet)
             {
@@ -198,7 +198,7 @@ namespace Microsoft.Diagnostics.Tools.Counters.Exporters
             UpdateStatus();
         }
 
-        public void CounterPayloadReceived(CounterPayload payload, bool pauseCmdSet)
+        public override void CounterPayloadReceived(CounterPayload payload, bool pauseCmdSet)
         {
             lock (_lock)
             {
@@ -261,7 +261,7 @@ namespace Microsoft.Diagnostics.Tools.Counters.Exporters
             }
         }
 
-        public void CounterStopped(CounterPayload payload)
+        public override void CounterStopped(CounterPayload payload)
         {
             lock (_lock)
             {
@@ -371,7 +371,7 @@ namespace Microsoft.Diagnostics.Tools.Counters.Exporters
             }
         }
 
-        public void Stop()
+        public override void Stop()
         {
             lock (_lock)
             {

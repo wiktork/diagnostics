@@ -7,7 +7,7 @@ using Microsoft.Diagnostics.Tools.Counters.Exporters;
 
 namespace Microsoft.Diagnostics.Tools.Counters
 {
-    internal abstract class CounterRendererAdapter : ICountersLogger, ICounterRenderer
+    public abstract class CounterRendererAdapter : ICountersLogger, ICounterRenderer
     {
         public abstract void CounterPayloadReceived(CounterPayload payload, bool paused);
 
@@ -27,6 +27,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
             }
             /*else if (payload.EventType == EventType.EndGauge)
             {
+                // Probably occurs when the instrument callback throws an exception (possibly coupled with an error event)
                 CounterStopped(payload):
             }
             */
