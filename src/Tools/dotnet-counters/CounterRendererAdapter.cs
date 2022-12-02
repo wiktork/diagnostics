@@ -19,6 +19,21 @@ namespace Microsoft.Diagnostics.Tools.Counters
 
         public void Log(List<ICounterPayload> counter)
         {
+            ICounterPayload payload = counter[0];
+            //Check types
+            if (payload is ErrorPayload error)
+            {
+                SetErrorText(error.ErrorMessage);
+            }
+            /*else if (payload.EventType == EventType.EndGauge)
+            {
+                CounterStopped(payload):
+            }
+            */
+            else
+            {
+                CounterPayloadReceived((CounterPayload)payload, PausedCommandSet);
+            }
         }
 
         public Task PipelineStarted()
@@ -33,19 +48,18 @@ namespace Microsoft.Diagnostics.Tools.Counters
             return Task.CompletedTask;
         }
 
-        public void SetErrorText(string errorText)
+        public abstract void SetErrorText(string errorText);
+
+        public abstract void Stop();
+
+        public abstract void ToggleStatus(bool paused);
+
+        public Task OnEventSourceAvailable()
         {
-            throw new NotImplementedException();
+            EventPipeSourceConnected();
+            return Task.CompletedTask;
         }
 
-        public void Stop()
-        {
-            throw new NotImplementedException();
-        }
-
-        public void ToggleStatus(bool paused)
-        {
-            throw new NotImplementedException();
-        }
+        public bool PausedCommandSet { get; set; }
     }
 }

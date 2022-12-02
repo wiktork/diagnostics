@@ -17,5 +17,9 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
         void Log(List<ICounterPayload> counter);
         Task PipelineStarted();
         Task PipelineStopped();
+
+        Task OnEventSourceAvailable();
+
+        //void BeforeEvent(); //do we need this??
     }
 }
