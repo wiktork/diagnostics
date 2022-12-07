@@ -41,11 +41,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
         private TaskCompletionSource<int> _shouldExit;
         private bool _resumeRuntime;
         private DiagnosticsClient _diagnosticsClient;
-        private EventPipeSession _session;
         private string _metricsEventSourceSessionId;
-        private int _maxTimeSeries;
-        private int _maxHistograms;
-        private TimeSpan _duration;
 
         class ProviderEventState
         {
@@ -429,30 +425,23 @@ namespace Microsoft.Diagnostics.Tools.Counters
                         // provider list so we need to ignore it in that case
                         _counterList = ConfigureCounters(counters, _processId != 0 ? counter_list : null);
                         _ct = ct;
-                        _interval = refreshInterval;
-                        _maxHistograms = maxHistograms;
-                        _maxTimeSeries = maxTimeSeries;
                         _renderer = new ConsoleWriter(useAnsi);
                         _diagnosticsClient = holder.Client;
                         EventPipeCounterPipelineSettings settings = new EventPipeCounterPipelineSettings();
                         settings.Duration = duration;
                         settings.MaxHistograms = maxHistograms;
                         settings.MaxTimeSeries = maxTimeSeries;
+                        settings.CounterIntervalSeconds = refreshInterval;
+                        settings.ResumeRuntime = resumeRuntime;
 
                         await using EventCounterPipeline eventCounterPipeline = new EventCounterPipeline(holder.Client, settings, new[] { this });
-                        _resumeRuntime = resumeRuntime;
-                        _duration = duration;
                         int ret = await Start(eventCounterPipeline, ct);
                         ProcessLauncher.Launcher.Cleanup();
                         return ret;
                     }
                     catch (OperationCanceledException)
                     {
-                        try
-                        {
-                            _session.Stop();
-                        }
-                        catch (Exception) { } // Swallow all exceptions for now.
+                        //Cancellation token should automatically stop the session
 
                         console.Out.WriteLine($"Complete");
                         return ReturnCode.Ok;
@@ -511,12 +500,14 @@ namespace Microsoft.Diagnostics.Tools.Counters
                         // provider list so we need to ignore it in that case
                         _counterList = ConfigureCounters(counters, _processId != 0 ? counter_list : null);
                         _ct = ct;
-                        _interval = refreshInterval;
-                        _maxHistograms = maxHistograms;
-                        _maxTimeSeries = maxTimeSeries;
+                        EventPipeCounterPipelineSettings settings = new EventPipeCounterPipelineSettings();
+                        settings.Duration = duration;
+                        settings.MaxHistograms = maxHistograms;
+                        settings.MaxTimeSeries = maxTimeSeries;
+                        settings.CounterIntervalSeconds = refreshInterval;
+                        settings.ResumeRuntime = resumeRuntime;
                         _output = output;
                         _diagnosticsClient = holder.Client;
-                        _duration = duration;
                         if (_output.Length == 0)
                         {
                             _console.Error.WriteLine("Output cannot be an empty string");
@@ -546,17 +537,14 @@ namespace Microsoft.Diagnostics.Tools.Counters
                             _console.Error.WriteLine($"The output format {format} is not a valid output format.");
                             return ReturnCode.ArgumentError;
                         }
-                        _resumeRuntime = resumeRuntime;
-                        int ret = await Start(pipeline: null, ct);
+                        await using EventCounterPipeline eventCounterPipeline = new EventCounterPipeline(holder.Client, settings, new[] { this });
+
+                        int ret = await Start(pipeline: eventCounterPipeline, ct);
                         return ret;
                     }
                     catch (OperationCanceledException)
                     {
-                        try
-                        {
-                            _session.Stop();
-                        }
-                        catch (Exception) { } // session.Stop() can throw if target application already stopped before we send the stop command.
+                        //Cancellation token should automatically stop the session
                         return ReturnCode.Ok;
                     }
                 }
