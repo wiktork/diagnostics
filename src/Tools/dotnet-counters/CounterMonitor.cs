@@ -31,7 +31,6 @@ namespace Microsoft.Diagnostics.Tools.Counters
         const int BufferDelaySecs = 1;
 
         private int _processId;
-        private int _interval;
         private CounterSet _counterList;
         private CancellationToken _ct;
         private IConsole _console;
@@ -39,9 +38,9 @@ namespace Microsoft.Diagnostics.Tools.Counters
         private string _output;
         private bool _pauseCmdSet;
         private TaskCompletionSource<int> _shouldExit;
-        private bool _resumeRuntime;
         private DiagnosticsClient _diagnosticsClient;
         private string _metricsEventSourceSessionId;
+        private EventPipeCounterPipelineSettings _settings;
 
         class ProviderEventState
         {
@@ -129,7 +128,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
             // the value might be an empty string indicating no measurement was provided this collection interval
             if (double.TryParse(rateText, out double rate))
             {
-                CounterPayload payload = new RatePayload(meterName, instrumentName, null, unit, new Dictionary<string, string>(/*tags*/), rate, _interval, obj.TimeStamp);
+                CounterPayload payload = new RatePayload(meterName, instrumentName, null, unit, new Dictionary<string, string>(/*tags*/), rate, _settings.CounterIntervalSeconds, obj.TimeStamp);
                 _renderer.CounterPayloadReceived(payload, _pauseCmdSet);
             }
 
@@ -159,7 +158,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
             else
             {
                 // for observable instruments we assume the lack of data is meaningful and remove it from the UI
-                CounterPayload payload = new RatePayload(meterName, instrumentName, null, unit, new Dictionary<string, string>(/*tags*/), 0, _interval, obj.TimeStamp);
+                CounterPayload payload = new RatePayload(meterName, instrumentName, null, unit, new Dictionary<string, string>(/*tags*/), 0, _settings.CounterIntervalSeconds, obj.TimeStamp);
                 _renderer.CounterStopped(payload);
             }
         }
@@ -194,7 +193,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                 return;
             }
             _renderer.SetErrorText(
-                $"Warning: Histogram tracking limit ({_maxHistograms}) reached. Not all data is being shown." + Environment.NewLine +
+                $"Warning: Histogram tracking limit ({_settings.MaxHistograms}) reached. Not all data is being shown." + Environment.NewLine +
                 "The limit can be changed with --maxHistograms but will use more memory in the target process."
                 );
         }
@@ -207,7 +206,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                 return;
             }
             _renderer.SetErrorText(
-                $"Warning: Time series tracking limit ({_maxTimeSeries}) reached. Not all data is being shown." + Environment.NewLine +
+                $"Warning: Time series tracking limit ({_settings.MaxTimeSeries}) reached. Not all data is being shown." + Environment.NewLine +
                 "The limit can be changed with --maxTimeSeries but will use more memory in the target process."
                 );
         }
@@ -427,14 +426,14 @@ namespace Microsoft.Diagnostics.Tools.Counters
                         _ct = ct;
                         _renderer = new ConsoleWriter(useAnsi);
                         _diagnosticsClient = holder.Client;
-                        EventPipeCounterPipelineSettings settings = new EventPipeCounterPipelineSettings();
-                        settings.Duration = duration;
-                        settings.MaxHistograms = maxHistograms;
-                        settings.MaxTimeSeries = maxTimeSeries;
-                        settings.CounterIntervalSeconds = refreshInterval;
-                        settings.ResumeRuntime = resumeRuntime;
+                        _settings = new EventPipeCounterPipelineSettings();
+                        _settings.Duration = duration;
+                        _settings.MaxHistograms = maxHistograms;
+                        _settings.MaxTimeSeries = maxTimeSeries;
+                        _settings.CounterIntervalSeconds = refreshInterval;
+                        _settings.ResumeRuntime = resumeRuntime;
 
-                        await using EventCounterPipeline eventCounterPipeline = new EventCounterPipeline(holder.Client, settings, new[] { this });
+                        await using EventCounterPipeline eventCounterPipeline = new EventCounterPipeline(holder.Client, _settings, new[] { this });
                         int ret = await Start(eventCounterPipeline, ct);
                         ProcessLauncher.Launcher.Cleanup();
                         return ret;
@@ -500,12 +499,12 @@ namespace Microsoft.Diagnostics.Tools.Counters
                         // provider list so we need to ignore it in that case
                         _counterList = ConfigureCounters(counters, _processId != 0 ? counter_list : null);
                         _ct = ct;
-                        EventPipeCounterPipelineSettings settings = new EventPipeCounterPipelineSettings();
-                        settings.Duration = duration;
-                        settings.MaxHistograms = maxHistograms;
-                        settings.MaxTimeSeries = maxTimeSeries;
-                        settings.CounterIntervalSeconds = refreshInterval;
-                        settings.ResumeRuntime = resumeRuntime;
+                        _settings = new EventPipeCounterPipelineSettings();
+                        _settings.Duration = duration;
+                        _settings.MaxHistograms = maxHistograms;
+                        _settings.MaxTimeSeries = maxTimeSeries;
+                        _settings.CounterIntervalSeconds = refreshInterval;
+                        _settings.ResumeRuntime = resumeRuntime;
                         _output = output;
                         _diagnosticsClient = holder.Client;
                         if (_output.Length == 0)
@@ -537,7 +536,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                             _console.Error.WriteLine($"The output format {format} is not a valid output format.");
                             return ReturnCode.ArgumentError;
                         }
-                        await using EventCounterPipeline eventCounterPipeline = new EventCounterPipeline(holder.Client, settings, new[] { this });
+                        await using EventCounterPipeline eventCounterPipeline = new EventCounterPipeline(holder.Client, _settings, new[] { this });
 
                         int ret = await Start(pipeline: eventCounterPipeline, ct);
                         return ret;
@@ -707,7 +706,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
             // EventSources support EventCounter based metrics directly
             IEnumerable<EventPipeProvider> eventCounterProviders = _counterList.Providers.Select(
                 providerName => new EventPipeProvider(providerName, EventLevel.Error, 0, new Dictionary<string, string>()
-                {{ "EventCounterIntervalSec", _interval.ToString() }}));
+                {{ "EventCounterIntervalSec", _settings.CounterIntervalSeconds.ToString() }}));
 
             //System.Diagnostics.Metrics EventSource supports the new Meter/Instrument APIs
             const long TimeSeriesValues = 0x2;
@@ -734,9 +733,9 @@ namespace Microsoft.Diagnostics.Tools.Counters
                     {
                         { "SessionId", _metricsEventSourceSessionId },
                         { "Metrics", metrics.ToString() },
-                        { "RefreshInterval", _interval.ToString() },
-                        { "MaxTimeSeries", _maxTimeSeries.ToString() },
-                        { "MaxHistograms", _maxHistograms.ToString() }
+                        { "RefreshInterval", _settings.CounterIntervalSeconds.ToString() },
+                        { "MaxTimeSeries", _settings.MaxTimeSeries.ToString() },
+                        { "MaxHistograms", _settings.MaxHistograms.ToString() }
                     }
                 );
 
