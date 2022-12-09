@@ -74,9 +74,9 @@ namespace Microsoft.Diagnostics.Tools.Counters.Exporters
                     .Append(payload.Timestamp.ToString()).Append(',')
                     .Append(payload.Provider).Append(',')
                     .Append(payload.DisplayName);
-                if(!string.IsNullOrEmpty(payload.Metadata.ToString()))
+                if(!string.IsNullOrEmpty(payload.Metadata))
                 {
-                    builder.Append('[').Append(payload.Metadata.ToString().Replace(',', ';')).Append(']');
+                    builder.Append('[').Append(payload.Metadata.Replace(',', ';')).Append(']');
                 }
                 builder.Append(',')
                     .Append(payload.CounterType).Append(',')

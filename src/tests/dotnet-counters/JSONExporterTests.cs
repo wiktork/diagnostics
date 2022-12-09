@@ -27,7 +27,7 @@ namespace DotnetCounters.UnitTests
             DateTime start = DateTime.Now;
             for (int i = 0; i < 10; i++)
             {
-                exporter.CounterPayloadReceived(new RatePayload("myProvider", "incrementingCounterOne", "Incrementing Counter One", "", new Dictionary<string, string>(), 1, 1, start + TimeSpan.FromSeconds(i)), false);
+                exporter.CounterPayloadReceived(new RatePayload("myProvider", "incrementingCounterOne", "Incrementing Counter One", "", null, 1, 1, start + TimeSpan.FromSeconds(i)), false);
             }
             exporter.Stop();
 
@@ -58,7 +58,7 @@ namespace DotnetCounters.UnitTests
             DateTime start = DateTime.Now;
             for (int i = 0; i < 10; i++)
             {
-                exporter.CounterPayloadReceived(new GaugePayload("myProvider", "counterOne", "Counter One", "", new Dictionary<string, string>(), 1, start + TimeSpan.FromSeconds(i)), false);
+                exporter.CounterPayloadReceived(new GaugePayload("myProvider", "counterOne", "Counter One", "", null, 1, start + TimeSpan.FromSeconds(i)), false);
             }
             exporter.Stop();
 
@@ -89,7 +89,7 @@ namespace DotnetCounters.UnitTests
             DateTime start = DateTime.Now;
             for (int i = 0 ; i < 20; i++)
             {
-                exporter.CounterPayloadReceived(new GaugePayload("myProvider", "heapSize", "Heap Size", "MB", new Dictionary<string, string>(), i, start + TimeSpan.FromSeconds(i)), false);
+                exporter.CounterPayloadReceived(new GaugePayload("myProvider", "heapSize", "Heap Size", "MB", null, i, start + TimeSpan.FromSeconds(i)), false);
             }
             exporter.Stop();
 
@@ -123,7 +123,7 @@ namespace DotnetCounters.UnitTests
             DateTime start = DateTime.Now;
             for (int i = 0 ; i < 20; i++)
             {
-                exporter.CounterPayloadReceived(new RatePayload("myProvider", "heapSize", "Heap Size", "MB", new Dictionary<string, string>(), 0, 60, start + TimeSpan.FromSeconds(i)), false);
+                exporter.CounterPayloadReceived(new RatePayload("myProvider", "heapSize", "Heap Size", "MB", null, 0, 60, start + TimeSpan.FromSeconds(i)), false);
             }
             exporter.Stop();
 
@@ -147,7 +147,7 @@ namespace DotnetCounters.UnitTests
             DateTime start = DateTime.Now;
             for (int i = 0; i < 10; i++)
             {
-                exporter.CounterPayloadReceived(new GaugePayload("myProvider", "counterOne", "Counter One", "", new Dictionary<string, string> { { "f", "abc" }, { "two", "9" } }, 1, start + TimeSpan.FromSeconds(i)), false);
+                exporter.CounterPayloadReceived(new GaugePayload("myProvider", "counterOne", "Counter One", "", "f=abc,two=9", 1, start + TimeSpan.FromSeconds(i)), false);
             }
             exporter.Stop();
 
@@ -179,7 +179,7 @@ namespace DotnetCounters.UnitTests
             DateTime start = DateTime.Now;
             for (int i = 0; i < 10; i++)
             {
-                exporter.CounterPayloadReceived(new GaugePayload("myProvider\\", "counterOne\f", "CounterOne\f", "", new Dictionary<string, string>(/*f\b\"\n=abc\r\\,\ttwo=9*/), 1, start + TimeSpan.FromSeconds(i)), false);
+                exporter.CounterPayloadReceived(new GaugePayload("myProvider\\", "counterOne\f", "CounterOne\f", "", "f\b\"\n=abc\r\\,\ttwo=9", 1, start + TimeSpan.FromSeconds(i)), false);
             }
             exporter.Stop();
 
@@ -211,7 +211,7 @@ namespace DotnetCounters.UnitTests
             DateTime start = DateTime.Now;
             for (int i = 0; i < 10; i++)
             {
-                exporter.CounterPayloadReceived(new PercentilePayload("myProvider", "counterOne", "Counter One", "", new Dictionary<string, string>(/*f=abc,Percentile=50*/), 1, start + TimeSpan.FromSeconds(i)), false);
+                exporter.CounterPayloadReceived(new PercentilePayload("myProvider", "counterOne", "Counter One", "", "f=abc,Percentile=50", 1, start + TimeSpan.FromSeconds(i)), false);
             }
             exporter.Stop();
 

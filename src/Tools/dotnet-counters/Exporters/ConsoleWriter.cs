@@ -215,7 +215,7 @@ namespace Microsoft.Diagnostics.Tools.Counters.Exporters
 
                 string providerName = payload.Provider;
                 string name = payload.Name;
-                string tags = payload.Metadata.ToString();
+                string tags = payload.Metadata;
 
                 bool redraw = false;
                 if (!_providers.TryGetValue(providerName, out ObservedProvider provider))
@@ -267,7 +267,7 @@ namespace Microsoft.Diagnostics.Tools.Counters.Exporters
             {
                 string providerName = payload.Provider;
                 string counterName = payload.Name;
-                string tags = payload.Metadata.ToString();
+                string tags = payload.Metadata;
 
                 if (!_providers.TryGetValue(providerName, out ObservedProvider provider))
                 {
