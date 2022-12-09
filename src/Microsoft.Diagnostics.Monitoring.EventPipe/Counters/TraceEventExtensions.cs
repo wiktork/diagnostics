@@ -6,6 +6,7 @@ using Microsoft.Diagnostics.Tracing;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime;
 
 namespace Microsoft.Diagnostics.Monitoring.EventPipe
 {
@@ -78,8 +79,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
 
                 if (traceEvent.EventName == "BeginInstrumentReporting")
                 {
-                    // Do we want to log something for this?
-                    //HandleBeginInstrumentReporting(traceEvent);
+                    HandleBeginInstrumentReporting(traceEvent, filter, sessionId, out individualPayload);
                 }
                 if (traceEvent.EventName == "HistogramValuePublished")
                 {
@@ -173,6 +173,23 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             }
         }
 
+        private static void HandleBeginInstrumentReporting(TraceEvent traceEvent, CounterFilter filter, string sessionId, out ICounterPayload payload)
+        {
+            payload = null;
+
+            string payloadSessionId = (string)traceEvent.PayloadValue(0);
+            if (payloadSessionId != sessionId)
+            {
+                return;
+            }
+
+            string meterName = (string)traceEvent.PayloadValue(1);
+            //string meterVersion = (string)obj.PayloadValue(2);
+            string instrumentName = (string)traceEvent.PayloadValue(3);
+
+            payload = new InstrumentationStartedPayload(meterName, instrumentName, traceEvent.TimeStamp);
+        }
+
         private static void HandleCounterRate(TraceEvent traceEvent, CounterFilter filter, string sessionId, out ICounterPayload payload)
         {
             payload = null;
@@ -240,6 +257,9 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             {
                 return;
             }
+
+            //string errorMessage = $"Warning: Histogram tracking limit ({_settings.MaxHistograms}) reached. Not all data is being shown." + Environment.NewLine +
+            //                "The limit can be changed with --maxHistograms but will use more memory in the target process."
 
             string errorMessage = $"Warning: Histogram tracking limit reached. Not all data is being shown. The limit can be changed with maxHistograms but will use more memory in the target process.";
 

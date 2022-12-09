@@ -36,7 +36,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
         {
             try
             {
-                return _processor.Value.Process(Client, Settings.Duration, token);
+                return _processor.Value.Process(Client, Settings.Duration, Settings.ResumeRuntime, token);
             }
             catch (InvalidOperationException e)
             {

@@ -54,11 +54,11 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.UnitTests
 
             public IEnumerable<ICounterPayload> Metrics => _metrics.Values;
 
-            public void Log(ICounterPayload metric)
+            public void Log(ICounterPayload payload)
             {
-                string key = CreateKey(metric);
+                string key = CreateKey(payload);
 
-                _metrics[key] = metric;
+                _metrics[key] = payload;
 
                 // Complete the task source if the last expected key was removed.
                 if (_expectedCounters.Remove(key) && _expectedCounters.Count == 0)
@@ -79,6 +79,11 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.UnitTests
             private static string CreateKey(string providerName, string counterName)
             {
                 return $"{providerName}_{counterName}";
+            }
+
+            public Task OnEventSourceAvailable()
+            {
+                throw new System.NotImplementedException();
             }
         }
 

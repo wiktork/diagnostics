@@ -44,8 +44,6 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             EventType = eventType;
         }
 
-        public string Namespace { get; }
-
         public string Name { get; }
 
         public string DisplayName { get; protected set; }
@@ -65,6 +63,8 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
         public string Metadata { get; }
 
         public EventType EventType { get; set; }
+
+        public virtual bool IsMeter => false;
     }
 
     internal class GaugePayload : CounterPayload
@@ -76,6 +76,18 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             string counterName = string.IsNullOrEmpty(displayName) ? name : displayName;
             DisplayName = !string.IsNullOrEmpty(displayUnits) ? $"{counterName} ({displayUnits})" : counterName;
         }
+
+        public override bool IsMeter => true;
+    }
+
+    internal class InstrumentationStartedPayload : CounterPayload
+    {
+        public InstrumentationStartedPayload(string providerName, string name, DateTime dateTime)
+            : base(providerName, name, string.Empty, string.Empty, null, 0.0, dateTime, "Metric", EventType.InstrumentationStarted)
+        {
+        }
+
+        public override bool IsMeter => true;
     }
 
     internal class CounterEndedPayload : CounterPayload
@@ -85,6 +97,8 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
         {
 
         }
+
+        public override bool IsMeter => true;
     }
 
     internal class RatePayload : CounterPayload
@@ -98,6 +112,8 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             string intervalName = intervalSecs.ToString() + " sec";
             DisplayName = $"{counterName} ({unitsName} / {intervalName})";
         }
+
+        public override bool IsMeter => true;
     }
 
     internal class PercentilePayload : CounterPayload
@@ -109,6 +125,8 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             string counterName = string.IsNullOrEmpty(displayName) ? name : displayName;
             DisplayName = !string.IsNullOrEmpty(displayUnits) ? $"{counterName} ({displayUnits})" : counterName;
         }
+
+        public override bool IsMeter => true;
     }
 
     internal class ErrorPayload : CounterPayload
@@ -133,6 +151,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
         Gauge,
         Histogram,
         Error,
+        InstrumentationStarted,
         CounterEnded
     }
 }
