@@ -10,11 +10,17 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
 {
     internal static class CounterPayloadExtensions
     {
-        public static string GetDisplay(this ICounterPayload counterPayload)
+        internal enum DisplayRenderingMode
+        {
+            Default,
+            DotnetCounters
+        }
+
+        public static string GetDisplay(this ICounterPayload counterPayload, DisplayRenderingMode displayRenderingMode = DisplayRenderingMode.Default)
         {
             if (counterPayload.CounterType == CounterType.Rate)
             {
-                return $"{counterPayload.DisplayName} ({counterPayload.Unit} / {counterPayload.Interval} sec)";
+                return $"{counterPayload.DisplayName} ({GetUnit(counterPayload.Unit, displayRenderingMode)} / {GetInterval(counterPayload, displayRenderingMode)} sec)";
             }
             if (!string.IsNullOrEmpty(counterPayload.Unit))
             {
@@ -22,5 +28,17 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             }
             return $"{counterPayload.DisplayName}";
         }
+
+        private static string GetUnit(string unit, DisplayRenderingMode displayRenderingMode)
+        {
+            if (displayRenderingMode == DisplayRenderingMode.DotnetCounters && string.Equals(unit, "count", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Count";
+            }
+            return unit;
+        }
+
+        private static string GetInterval(ICounterPayload payload, DisplayRenderingMode displayRenderingMode) =>
+            displayRenderingMode == DisplayRenderingMode.DotnetCounters ? payload.Series.ToString() : payload.Interval.ToString();
     }
 }

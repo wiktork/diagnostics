@@ -54,7 +54,12 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             {
                 try
                 {
-                    if (traceEvent.TryGetCounterPayload(_filter, _sessionId, out List<ICounterPayload> counterPayload))
+                    if (traceEvent.TryGetCounterPayload(new CounterConfiguration(_filter)
+                        {
+                            SessionId = _sessionId,
+                            MaxHistograms = Settings.MaxHistograms,
+                            MaxTimeseries = Settings.MaxTimeSeries
+                        }, out List<ICounterPayload> counterPayload))
                     {
                         ExecuteCounterLoggerAction((metricLogger) => {
                             foreach (var payload in counterPayload)

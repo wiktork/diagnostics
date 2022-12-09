@@ -3,15 +3,34 @@
 // See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Tracing;
+using Microsoft.Diagnostics.Tracing.Parsers.Clr;
+using Microsoft.Diagnostics.Tracing.Parsers.Kernel;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime;
 
 namespace Microsoft.Diagnostics.Monitoring.EventPipe
 {
+    internal class CounterConfiguration
+    {
+        public CounterConfiguration(CounterFilter filter)
+        {
+            CounterFilter = filter ?? throw new ArgumentNullException(nameof(filter));
+        }
+
+        public CounterFilter CounterFilter { get; }
+
+        public string SessionId { get; set; } = null;
+
+        public int MaxHistograms { get; set; } = 0;
+
+        public int MaxTimeseries { get; set; } = 0;
+    }
+
     internal static class TraceEventExtensions
     {
-        public static bool TryGetCounterPayload(this TraceEvent traceEvent, CounterFilter filter, string sessionId, out List<ICounterPayload> payload)
+        public static bool TryGetCounterPayload(this TraceEvent traceEvent, CounterConfiguration counterConfiguration, out List<ICounterPayload> payload)
         {
             payload = new List<ICounterPayload>();
 
@@ -25,12 +44,12 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
                 string counterName = payloadFields["Name"].ToString();
 
                 string metadata = payloadFields["Metadata"].ToString();
-
+                int seriesValue = GetInterval(series);
                 //CONSIDER
                 //Concurrent counter sessions do not each get a separate interval. Instead the payload
                 //for _all_ the counters changes the Series to be the lowest specified interval, on a per provider basis.
                 //Currently the CounterFilter will remove any data whose Series doesn't match the requested interval.
-                if (!filter.IsIncluded(traceEvent.ProviderName, counterName, GetInterval(series)))
+                if (!counterConfiguration.CounterFilter.IsIncluded(traceEvent.ProviderName, counterName, seriesValue))
                 {
                     return false;
                 }
@@ -59,7 +78,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
                 // Note that dimensional data such as pod and namespace are automatically added in prometheus and azure monitor scenarios.
                 // We no longer added it here.
 
-                payload.Add(new CounterPayload(
+                payload.Add(new StandardCounterPayload(
                     traceEvent.TimeStamp,
                     traceEvent.ProviderName,
                     counterName, displayName,
@@ -67,51 +86,51 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
                     value,
                     counterType,
                     intervalSec,
+                    seriesValue / 1000,
                     metadata));
 
                 return true;
             }
 
-            if (sessionId != null && "System.Diagnostics.Metrics".Equals(traceEvent.ProviderName))
+            if (counterConfiguration.SessionId != null && "System.Diagnostics.Metrics".Equals(traceEvent.ProviderName))
             {
                 ICounterPayload individualPayload = null;
 
                 if (traceEvent.EventName == "BeginInstrumentReporting")
                 {
-                    // Do we want to log something for this?
-                    //HandleBeginInstrumentReporting(traceEvent);
+                    HandleBeginInstrumentReporting(traceEvent, counterConfiguration, out individualPayload);
                 }
                 if (traceEvent.EventName == "HistogramValuePublished")
                 {
-                    HandleHistogram(traceEvent, filter, sessionId, out payload);
+                    HandleHistogram(traceEvent, counterConfiguration, out payload);
                 }
                 else if (traceEvent.EventName == "GaugeValuePublished")
                 {
-                    HandleGauge(traceEvent, filter, sessionId, out individualPayload);
+                    HandleGauge(traceEvent, counterConfiguration, out individualPayload);
                 }
                 else if (traceEvent.EventName == "CounterRateValuePublished")
                 {
-                    HandleCounterRate(traceEvent, filter, sessionId, out individualPayload);
+                    HandleCounterRate(traceEvent, counterConfiguration, out individualPayload);
                 }
                 else if (traceEvent.EventName == "TimeSeriesLimitReached")
                 {
-                    HandleTimeSeriesLimitReached(traceEvent, sessionId, out individualPayload);
+                    HandleTimeSeriesLimitReached(traceEvent, counterConfiguration, out individualPayload);
                 }
                 else if (traceEvent.EventName == "HistogramLimitReached")
                 {
-                    HandleHistogramLimitReached(traceEvent, sessionId, out individualPayload);
+                    HandleHistogramLimitReached(traceEvent, counterConfiguration, out individualPayload);
                 }
                 else if (traceEvent.EventName == "Error")
                 {
-                    HandleError(traceEvent, sessionId, out individualPayload);
+                    HandleError(traceEvent, counterConfiguration, out individualPayload);
                 }
                 else if (traceEvent.EventName == "ObservableInstrumentCallbackError")
                 {
-                    HandleObservableInstrumentCallbackError(traceEvent, sessionId, out individualPayload);
+                    HandleObservableInstrumentCallbackError(traceEvent, counterConfiguration, out individualPayload);
                 }
                 else if (traceEvent.EventName == "MultipleSessionsNotSupportedError")
                 {
-                    HandleMultipleSessionsNotSupportedError(traceEvent, sessionId, out individualPayload);
+                    HandleMultipleSessionsNotSupportedError(traceEvent, counterConfiguration, out individualPayload);
                 }
 
                 if (null != individualPayload)
@@ -125,22 +144,22 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             return false;
         }
 
-        public static bool TryGetIndividualCounterPayload(this TraceEvent traceEvent, CounterFilter filter, out ICounterPayload payload)
+        public static bool TryGetIndividualCounterPayload(this TraceEvent traceEvent, CounterConfiguration counterConfiguration, out ICounterPayload payload)
         {
-            bool gotCounterPayload = TryGetCounterPayload(traceEvent, filter, null, out List<ICounterPayload> payloadsList);
+            bool gotCounterPayload = TryGetCounterPayload(traceEvent, counterConfiguration, out List<ICounterPayload> payloadsList);
 
             payload = payloadsList.FirstOrDefault();
 
             return gotCounterPayload;
         }
 
-        private static void HandleGauge(TraceEvent obj, CounterFilter filter, string sessionId, out ICounterPayload payload)
+        private static void HandleGauge(TraceEvent obj, CounterConfiguration counterConfiguration, out ICounterPayload payload)
         {
             payload = null;
 
             string payloadSessionId = (string)obj.PayloadValue(0);
 
-            if (payloadSessionId != sessionId)
+            if (payloadSessionId != counterConfiguration.SessionId)
             {
                 return;
             }
@@ -152,7 +171,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             string tags = (string)obj.PayloadValue(5);
             string lastValueText = (string)obj.PayloadValue(6);
 
-            if (!filter.IsIncluded(meterName, instrumentName))
+            if (!counterConfiguration.CounterFilter.IsIncluded(meterName, instrumentName))
             {
                 return;
             }
@@ -173,13 +192,30 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             }
         }
 
-        private static void HandleCounterRate(TraceEvent traceEvent, CounterFilter filter, string sessionId, out ICounterPayload payload)
+        private static void HandleBeginInstrumentReporting(TraceEvent traceEvent, CounterConfiguration configuration, out ICounterPayload payload)
+        {
+            payload = null;
+
+            string payloadSessionId = (string)traceEvent.PayloadValue(0);
+            if (payloadSessionId != configuration.SessionId)
+            {
+                return;
+            }
+
+            string meterName = (string)traceEvent.PayloadValue(1);
+            //string meterVersion = (string)obj.PayloadValue(2);
+            string instrumentName = (string)traceEvent.PayloadValue(3);
+
+            payload = new InstrumentationStartedPayload(meterName, instrumentName, traceEvent.TimeStamp);
+        }
+
+        private static void HandleCounterRate(TraceEvent traceEvent, CounterConfiguration counterConfiguration, out ICounterPayload payload)
         {
             payload = null;
 
             string payloadSessionId = (string)traceEvent.PayloadValue(0);
 
-            if (payloadSessionId != sessionId)
+            if (payloadSessionId != counterConfiguration.SessionId)
             {
                 return;
             }
@@ -197,13 +233,13 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             }
         }
 
-        private static void HandleHistogram(TraceEvent obj, CounterFilter filter, string sessionId, out List<ICounterPayload> payload)
+        private static void HandleHistogram(TraceEvent obj, CounterConfiguration configuration, out List<ICounterPayload> payload)
         {
             payload = new List<ICounterPayload>();
 
             string payloadSessionId = (string)obj.PayloadValue(0);
 
-            if (payloadSessionId != sessionId)
+            if (payloadSessionId != configuration.SessionId)
             {
                 return;
             }
@@ -215,7 +251,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             string tags = (string)obj.PayloadValue(5);
             string quantilesText = (string)obj.PayloadValue(6);
 
-            if (!filter.IsIncluded(meterName, instrumentName))
+            if (!configuration.CounterFilter.IsIncluded(meterName, instrumentName))
             {
                 return;
             }
@@ -230,60 +266,61 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
 
         private static string AppendPercentile(string tags, string percentile) => string.IsNullOrEmpty(tags) ? percentile : FormattableString.Invariant($"{tags},{percentile}");
 
-        private static void HandleHistogramLimitReached(TraceEvent obj, string sessionId, out ICounterPayload payload)
+        private static void HandleHistogramLimitReached(TraceEvent obj, CounterConfiguration configuration, out ICounterPayload payload)
         {
             payload = null;
 
             string payloadSessionId = (string)obj.PayloadValue(0);
 
-            if (payloadSessionId != sessionId)
+            if (payloadSessionId != configuration.SessionId)
             {
                 return;
             }
 
-            string errorMessage = $"Warning: Histogram tracking limit reached. Not all data is being shown. The limit can be changed with maxHistograms but will use more memory in the target process.";
-
-            payload = new ErrorPayload(errorMessage);
-        }
-
-        private static void HandleTimeSeriesLimitReached(TraceEvent obj, string sessionId, out ICounterPayload payload)
-        {
-            payload = null;
-
-            string payloadSessionId = (string)obj.PayloadValue(0);
-
-            if (payloadSessionId != sessionId)
-            {
-                return;
-            }
-
-            string errorMessage = "Warning: Time series tracking limit reached. Not all data is being shown. The limit can be changed with maxTimeSeries but will use more memory in the target process.";
+            string errorMessage = $"Warning: Histogram tracking limit ({configuration.MaxHistograms}) reached. Not all data is being shown." + Environment.NewLine +
+                            "The limit can be changed but will use more memory in the target process.";
 
             payload = new ErrorPayload(errorMessage, obj.TimeStamp);
         }
 
-        private static void HandleError(TraceEvent obj, string sessionId, out ICounterPayload payload)
+        private static void HandleTimeSeriesLimitReached(TraceEvent obj, CounterConfiguration configuration, out ICounterPayload payload)
+        {
+            payload = null;
+
+            string payloadSessionId = (string)obj.PayloadValue(0);
+
+            if (payloadSessionId != configuration.SessionId)
+            {
+                return;
+            }
+
+            string errorMessage = $"Warning: Time series tracking limit ({configuration.MaxTimeseries}) reached. Not all data is being shown. The limit can be changed but will use more memory in the target process.";
+
+            payload = new ErrorPayload(errorMessage, obj.TimeStamp);
+        }
+
+        private static void HandleError(TraceEvent obj, CounterConfiguration configuration, out ICounterPayload payload)
         {
             payload = null;
 
             string payloadSessionId = (string)obj.PayloadValue(0);
             string error = (string)obj.PayloadValue(1);
-            if (sessionId != payloadSessionId)
+            if (configuration.SessionId != payloadSessionId)
             {
                 return;
             }
 
             string errorMessage = "Error reported from target process:" + Environment.NewLine + error;
 
-            payload = new ErrorPayload(errorMessage, obj.TimeStamp);
+            payload = new ErrorPayload(errorMessage, obj.TimeStamp, ErrorType.TracingError);
         }
 
-        private static void HandleMultipleSessionsNotSupportedError(TraceEvent obj, string sessionId, out ICounterPayload payload)
+        private static void HandleMultipleSessionsNotSupportedError(TraceEvent obj, CounterConfiguration configuration, out ICounterPayload payload)
         {
             payload = null;
 
             string payloadSessionId = (string)obj.PayloadValue(0);
-            if (payloadSessionId == sessionId)
+            if (payloadSessionId == configuration.SessionId)
             {
                 // If our session is the one that is running then the error is not for us,
                 // it is for some other session that came later
@@ -294,18 +331,18 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
                 string errorMessage = "Error: Another metrics collection session is already in progress for the target process, perhaps from another tool? " + Environment.NewLine +
                 "Concurrent sessions are not supported.";
 
-                payload = new ErrorPayload(errorMessage, obj.TimeStamp);
+                payload = new ErrorPayload(errorMessage, obj.TimeStamp, ErrorType.SessionStartupError);
             }
         }
 
-        private static void HandleObservableInstrumentCallbackError(TraceEvent obj, string sessionId, out ICounterPayload payload)
+        private static void HandleObservableInstrumentCallbackError(TraceEvent obj, CounterConfiguration configuration, out ICounterPayload payload)
         {
             payload = null;
 
             string payloadSessionId = (string)obj.PayloadValue(0);
             string error = (string)obj.PayloadValue(1);
 
-            if (payloadSessionId != sessionId)
+            if (payloadSessionId != configuration.SessionId)
             {
                 return;
             }

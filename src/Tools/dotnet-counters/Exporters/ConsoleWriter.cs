@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using Microsoft.Diagnostics.Monitoring.EventPipe;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -14,7 +15,7 @@ namespace Microsoft.Diagnostics.Tools.Counters.Exporters
     /// ConsoleWriter is an implementation of ICounterRenderer for rendering the counter values in real-time
     /// to the console. This is the renderer for the `dotnet-counters monitor` command.
     /// </summary>
-    public class ConsoleWriter : ICounterRenderer
+    internal class ConsoleWriter : ICounterRenderer
     {
         /// <summary>Information about an observed provider.</summary>
         private class ObservedProvider
@@ -212,9 +213,9 @@ namespace Microsoft.Diagnostics.Tools.Counters.Exporters
                     return;
                 }
 
-                string providerName = payload.ProviderName;
+                string providerName = payload.Provider;
                 string name = payload.Name;
-                string tags = payload.Tags;
+                string tags = payload.Metadata;
 
                 bool redraw = false;
                 if (!_providers.TryGetValue(providerName, out ObservedProvider provider))
@@ -264,9 +265,9 @@ namespace Microsoft.Diagnostics.Tools.Counters.Exporters
         {
             lock (_lock)
             {
-                string providerName = payload.ProviderName;
+                string providerName = payload.Provider;
                 string counterName = payload.Name;
-                string tags = payload.Tags;
+                string tags = payload.Metadata;
 
                 if (!_providers.TryGetValue(providerName, out ObservedProvider provider))
                 {
