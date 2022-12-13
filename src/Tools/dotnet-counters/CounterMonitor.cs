@@ -69,7 +69,11 @@ namespace Microsoft.Diagnostics.Tools.Counters
                 // If we are paused, ignore the event. 
                 // There's a potential race here between the two tasks but not a huge deal if we miss by one event.
                 _renderer.ToggleStatus(_pauseCmdSet);
-                if (obj.Provider == "System.Diagnostics.Metrics")
+                if (obj is ErrorPayload errorPayload)
+                {
+                    _renderer.SetErrorText(errorPayload.ErrorMessage);
+                }
+                else if (obj.Provider == "System.Diagnostics.Metrics")
                 {
                     MeterInstrumentEventObserved(obj.Provider, obj.Name, obj.Timestamp);
                     //check error payload
@@ -427,11 +431,12 @@ namespace Microsoft.Diagnostics.Tools.Counters
                         _renderer = new ConsoleWriter(useAnsi);
                         _diagnosticsClient = holder.Client;
                         _settings = new EventPipeCounterPipelineSettings();
-                        _settings.Duration = duration;
+                        _settings.Duration = duration == TimeSpan.Zero ? Timeout.InfiniteTimeSpan : duration;
                         _settings.MaxHistograms = maxHistograms;
                         _settings.MaxTimeSeries = maxTimeSeries;
                         _settings.CounterIntervalSeconds = refreshInterval;
                         _settings.ResumeRuntime = resumeRuntime;
+                        _settings.CounterGroups = GetEventPipeProviders();
 
                         await using EventCounterPipeline eventCounterPipeline = new EventCounterPipeline(holder.Client, _settings, new[] { this });
                         int ret = await Start(eventCounterPipeline, ct);
@@ -500,11 +505,12 @@ namespace Microsoft.Diagnostics.Tools.Counters
                         _counterList = ConfigureCounters(counters, _processId != 0 ? counter_list : null);
                         _ct = ct;
                         _settings = new EventPipeCounterPipelineSettings();
-                        _settings.Duration = duration;
+                        _settings.Duration = duration == TimeSpan.Zero ? Timeout.InfiniteTimeSpan : duration;
                         _settings.MaxHistograms = maxHistograms;
                         _settings.MaxTimeSeries = maxTimeSeries;
                         _settings.CounterIntervalSeconds = refreshInterval;
                         _settings.ResumeRuntime = resumeRuntime;
+                        _settings.CounterGroups = GetEventPipeProviders();
                         _output = output;
                         _diagnosticsClient = holder.Client;
                         if (_output.Length == 0)
@@ -701,50 +707,16 @@ namespace Microsoft.Diagnostics.Tools.Counters
             }
         }
 
-        private EventPipeProvider[] GetEventPipeProviders()
-        {
-            // EventSources support EventCounter based metrics directly
-            IEnumerable<EventPipeProvider> eventCounterProviders = _counterList.Providers.Select(
-                providerName => new EventPipeProvider(providerName, EventLevel.Error, 0, new Dictionary<string, string>()
-                {{ "EventCounterIntervalSec", _settings.CounterIntervalSeconds.ToString() }}));
-
-            //System.Diagnostics.Metrics EventSource supports the new Meter/Instrument APIs
-            const long TimeSeriesValues = 0x2;
-            StringBuilder metrics = new StringBuilder();
-            foreach(string provider in _counterList.Providers)
+        private EventPipeCounterGroup[] GetEventPipeProviders() =>
+            _counterList.Providers.Select(provider => new EventPipeCounterGroup
             {
-                if(metrics.Length != 0)
-                {
-                    metrics.Append(",");
-                }
-                if(_counterList.IncludesAllCounters(provider))
-                {
-                    metrics.Append(provider);
-                }
-                else
-                {
-                    string[] providerCounters = _counterList.GetCounters(provider).Select(counter => $"{provider}\\{counter}").ToArray();
-                    metrics.Append(string.Join(',', providerCounters));
-                }
-            }
-            EventPipeProvider metricsEventSourceProvider =
-                new EventPipeProvider("System.Diagnostics.Metrics", EventLevel.Informational, TimeSeriesValues,
-                    new Dictionary<string, string>()
-                    {
-                        { "SessionId", _metricsEventSourceSessionId },
-                        { "Metrics", metrics.ToString() },
-                        { "RefreshInterval", _settings.CounterIntervalSeconds.ToString() },
-                        { "MaxTimeSeries", _settings.MaxTimeSeries.ToString() },
-                        { "MaxHistograms", _settings.MaxHistograms.ToString() }
-                    }
-                );
-
-            return eventCounterProviders.Append(metricsEventSourceProvider).ToArray();
-        }
+                ProviderName = provider,
+                CounterNames = _counterList.GetCounters(provider).ToArray()
+            }).ToArray();
 
         private Task<int> Start(EventCounterPipeline pipeline, CancellationToken token)
         {
-            EventPipeProvider[] providers = GetEventPipeProviders();
+            
             _renderer.Initialize();
             Task monitorTask = new Task(async () => {
                 try
