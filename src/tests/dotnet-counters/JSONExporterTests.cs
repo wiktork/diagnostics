@@ -27,7 +27,7 @@ namespace DotnetCounters.UnitTests
             DateTime start = DateTime.Now;
             for (int i = 0; i < 10; i++)
             {
-                exporter.CounterPayloadReceived(new RatePayload("myProvider", "incrementingCounterOne", "Incrementing Counter One", "", null, 1, 1, start + TimeSpan.FromSeconds(i)), false);
+                exporter.CounterPayloadReceived(new RatePayload("myProvider", "incrementingCounterOne", "Incrementing Counter One", string.Empty, string.Empty, 1, 1, start + TimeSpan.FromSeconds(i)), false);
             }
             exporter.Stop();
 
@@ -58,7 +58,7 @@ namespace DotnetCounters.UnitTests
             DateTime start = DateTime.Now;
             for (int i = 0; i < 10; i++)
             {
-                exporter.CounterPayloadReceived(new GaugePayload("myProvider", "counterOne", "Counter One", "", null, 1, start + TimeSpan.FromSeconds(i)), false);
+                exporter.CounterPayloadReceived(new GaugePayload("myProvider", "counterOne", "Counter One", string.Empty, string.Empty, 1, start + TimeSpan.FromSeconds(i)), false);
             }
             exporter.Stop();
 
@@ -89,7 +89,7 @@ namespace DotnetCounters.UnitTests
             DateTime start = DateTime.Now;
             for (int i = 0 ; i < 20; i++)
             {
-                exporter.CounterPayloadReceived(new GaugePayload("myProvider", "heapSize", "Heap Size", "MB", null, i, start + TimeSpan.FromSeconds(i)), false);
+                exporter.CounterPayloadReceived(new GaugePayload("myProvider", "heapSize", "Heap Size", "MB", string.Empty, i, start + TimeSpan.FromSeconds(i)), false);
             }
             exporter.Stop();
 
@@ -123,7 +123,7 @@ namespace DotnetCounters.UnitTests
             DateTime start = DateTime.Now;
             for (int i = 0 ; i < 20; i++)
             {
-                exporter.CounterPayloadReceived(new RatePayload("myProvider", "heapSize", "Heap Size", "MB", null, 0, 60, start + TimeSpan.FromSeconds(i)), false);
+                exporter.CounterPayloadReceived(new RatePayload("myProvider", "heapSize", "Heap Size", "MB", string.Empty, 0, 60, start + TimeSpan.FromSeconds(i)), false);
             }
             exporter.Stop();
 

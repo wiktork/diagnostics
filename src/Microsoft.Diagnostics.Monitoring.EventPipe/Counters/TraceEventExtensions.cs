@@ -263,7 +263,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
 
             string errorMessage = $"Warning: Histogram tracking limit reached. Not all data is being shown. The limit can be changed with maxHistograms but will use more memory in the target process.";
 
-            payload = new ErrorPayload(errorMessage);
+            payload = new ErrorPayload(errorMessage, obj.TimeStamp);
         }
 
         private static void HandleTimeSeriesLimitReached(TraceEvent obj, string sessionId, out ICounterPayload payload)
@@ -295,7 +295,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
 
             string errorMessage = "Error reported from target process:" + Environment.NewLine + error;
 
-            payload = new ErrorPayload(errorMessage, obj.TimeStamp);
+            payload = new ErrorPayload(errorMessage, obj.TimeStamp, ErrorType.TracingError);
         }
 
         private static void HandleMultipleSessionsNotSupportedError(TraceEvent obj, string sessionId, out ICounterPayload payload)
@@ -314,7 +314,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
                 string errorMessage = "Error: Another metrics collection session is already in progress for the target process, perhaps from another tool? " + Environment.NewLine +
                 "Concurrent sessions are not supported.";
 
-                payload = new ErrorPayload(errorMessage, obj.TimeStamp);
+                payload = new ErrorPayload(errorMessage, obj.TimeStamp, ErrorType.SessionStartupError);
             }
         }
 

@@ -131,17 +131,16 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
 
     internal class ErrorPayload : CounterPayload
     {
-        public ErrorPayload(string errorMessage) : this(errorMessage, DateTime.UtcNow) 
-        {
-        }
-
-        public ErrorPayload(string errorMessage, DateTime timestamp) :
+        public ErrorPayload(string errorMessage, DateTime timestamp, ErrorType errorType = ErrorType.NonFatal) :
             base(string.Empty, string.Empty, string.Empty, string.Empty, null, 0.0, timestamp, "Metric", EventType.Error)
         {
             ErrorMessage = errorMessage;
+            ErrorType = errorType;
         }
 
-        public string ErrorMessage { get; private set; }
+        public string ErrorMessage { get; }
+
+        public ErrorType ErrorType { get; }
     }
 
     // If keep this, should probably put it somewhere else
@@ -153,5 +152,12 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
         Error,
         InstrumentationStarted,
         CounterEnded
+    }
+
+    internal enum ErrorType : int
+    {
+        NonFatal,
+        TracingError,
+        SessionStartupError
     }
 }

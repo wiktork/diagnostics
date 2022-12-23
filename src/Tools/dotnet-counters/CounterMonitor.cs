@@ -73,6 +73,15 @@ namespace Microsoft.Diagnostics.Tools.Counters
                 if (obj is ErrorPayload errorPayload)
                 {
                     _renderer.SetErrorText(errorPayload.ErrorMessage);
+                    switch(errorPayload.ErrorType)
+                    {
+                        case ErrorType.SessionStartupError:
+                            _shouldExit.TrySetResult(ReturnCode.SessionCreationError);
+                            break;
+                        case ErrorType.TracingError:
+                            _shouldExit.TrySetResult(ReturnCode.TracingError);
+                            break;
+                    }
                 }
                 else if (obj is CounterEndedPayload counterEnded)
                 {

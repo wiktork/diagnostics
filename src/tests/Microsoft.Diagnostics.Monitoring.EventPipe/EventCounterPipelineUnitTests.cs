@@ -81,10 +81,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.UnitTests
                 return $"{providerName}_{counterName}";
             }
 
-            public Task OnEventSourceAvailable()
-            {
-                throw new System.NotImplementedException();
-            }
+            public Task OnEventSourceAvailable() => Task.CompletedTask;
         }
 
         [SkippableTheory, MemberData(nameof(Configurations))]
