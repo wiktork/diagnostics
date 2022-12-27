@@ -485,6 +485,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe.UnitTests
                     value,
                     CounterType.Metric,
                     actualInterval,
+                    (int)_intervalSeconds,
                     null);
             }
         }

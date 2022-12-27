@@ -18,6 +18,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             double value,
             CounterType counterType,
             float interval,
+            int series,
             string metadata)
         {
             Timestamp = timestamp;
@@ -28,6 +29,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             CounterType = counterType;
             Provider = provider;
             Interval = interval;
+            Series = series;
             Metadata = metadata;
             EventType = EventType.Gauge;
         }
@@ -65,6 +67,8 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
         public EventType EventType { get; set; }
 
         public virtual bool IsMeter => false;
+
+        public int Series { get; }
     }
 
     internal class GaugePayload : CounterPayload

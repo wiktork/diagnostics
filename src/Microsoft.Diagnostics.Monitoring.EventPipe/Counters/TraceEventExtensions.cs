@@ -26,12 +26,12 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
                 string counterName = payloadFields["Name"].ToString();
 
                 string metadata = payloadFields["Metadata"].ToString();
-
+                int seriesValue = GetInterval(series);
                 //CONSIDER
                 //Concurrent counter sessions do not each get a separate interval. Instead the payload
                 //for _all_ the counters changes the Series to be the lowest specified interval, on a per provider basis.
                 //Currently the CounterFilter will remove any data whose Series doesn't match the requested interval.
-                if (!filter.IsIncluded(traceEvent.ProviderName, counterName, GetInterval(series)))
+                if (!filter.IsIncluded(traceEvent.ProviderName, counterName, seriesValue))
                 {
                     return false;
                 }
@@ -68,6 +68,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
                     value,
                     counterType,
                     intervalSec,
+                    seriesValue / 1000,
                     metadata));
 
                 return true;
