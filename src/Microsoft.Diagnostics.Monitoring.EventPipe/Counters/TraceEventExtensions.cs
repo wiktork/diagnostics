@@ -78,7 +78,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
                 // Note that dimensional data such as pod and namespace are automatically added in prometheus and azure monitor scenarios.
                 // We no longer added it here.
 
-                payload.Add(new CounterPayload(
+                payload.Add(new StandardCounterPayload(
                     traceEvent.TimeStamp,
                     traceEvent.ProviderName,
                     counterName, displayName,
