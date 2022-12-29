@@ -7,6 +7,7 @@ using Microsoft.Diagnostics.Tracing.Parsers.Clr;
 using Microsoft.Diagnostics.Tracing.Parsers.Kernel;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Runtime;
 
@@ -177,7 +178,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             }
 
             // the value might be an empty string indicating no measurement was provided this collection interval
-            if (double.TryParse(lastValueText, out double lastValue))
+            if (double.TryParse(lastValueText, NumberStyles.Number | NumberStyles.Float, CultureInfo.InvariantCulture, out double lastValue))
             {
                 payload = new GaugePayload(meterName, instrumentName, null, unit, tags, lastValue, obj.TimeStamp);
             }
@@ -227,7 +228,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
             string tags = (string)traceEvent.PayloadValue(5);
             string rateText = (string)traceEvent.PayloadValue(6);
 
-            if (double.TryParse(rateText, out double rate))
+            if (double.TryParse(rateText, NumberStyles.Number | NumberStyles.Float, CultureInfo.InvariantCulture, out double rate))
             {
                 payload = new RatePayload(meterName, instrumentName, null, unit, tags, rate, 10, traceEvent.TimeStamp);
             }
@@ -406,11 +407,11 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
                 {
                     continue;
                 }
-                if (!double.TryParse(keyValParts[0], out double key))
+                if (!double.TryParse(keyValParts[0], NumberStyles.Number | NumberStyles.Float, CultureInfo.InvariantCulture, out double key))
                 {
                     continue;
                 }
-                if (!double.TryParse(keyValParts[1], out double val))
+                if (!double.TryParse(keyValParts[1], NumberStyles.Number | NumberStyles.Float, CultureInfo.InvariantCulture, out double val))
                 {
                     continue;
                 }
