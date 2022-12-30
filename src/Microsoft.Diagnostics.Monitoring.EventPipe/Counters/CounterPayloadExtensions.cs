@@ -18,14 +18,18 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
 
         public static string GetDisplay(this ICounterPayload counterPayload, DisplayRenderingMode displayRenderingMode = DisplayRenderingMode.Default)
         {
-            if (counterPayload.CounterType == CounterType.Rate)
+            if (!counterPayload.IsMeter)
             {
-                return $"{counterPayload.DisplayName} ({GetUnit(counterPayload.Unit, displayRenderingMode)} / {GetInterval(counterPayload, displayRenderingMode)} sec)";
+                if (counterPayload.CounterType == CounterType.Rate)
+                {
+                    return $"{counterPayload.DisplayName} ({GetUnit(counterPayload.Unit, displayRenderingMode)} / {GetInterval(counterPayload, displayRenderingMode)} sec)";
+                }
+                if (!string.IsNullOrEmpty(counterPayload.Unit))
+                {
+                    return $"{counterPayload.DisplayName} ({counterPayload.Unit})";
+                }
             }
-            if (!string.IsNullOrEmpty(counterPayload.Unit))
-            {
-                return $"{counterPayload.DisplayName} ({counterPayload.Unit})";
-            }
+
             return $"{counterPayload.DisplayName}";
         }
 
