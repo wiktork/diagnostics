@@ -25,6 +25,7 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
 
             if (settings.CounterGroups.Length > 0)
             {
+                //TODO Propagate per provider intervals
                 _filter = new CounterFilter(Settings.CounterIntervalSeconds);
                 foreach (var counterGroup in settings.CounterGroups)
                 {

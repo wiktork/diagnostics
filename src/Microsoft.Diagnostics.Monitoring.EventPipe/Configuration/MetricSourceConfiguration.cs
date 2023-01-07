@@ -6,6 +6,7 @@ using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.Diagnostics.Tracing.Parsers;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics.Tracing;
 using System.Globalization;
 using System.Linq;
@@ -22,12 +23,14 @@ namespace Microsoft.Diagnostics.Monitoring.EventPipe
 
     public sealed class MetricSourceConfiguration : MonitoringSourceConfiguration
     {
+        public static readonly string[] DefaultProviders = new[] { SystemRuntimeEventSourceName, MicrosoftAspNetCoreHostingEventSourceName, GrpcAspNetCoreServer };
         private readonly IList<EventPipeProvider> _eventPipeProviders;
+
         public string SessionId { get; private set; }
 
         public MetricSourceConfiguration(float metricIntervalSeconds, IEnumerable<string> customProviderNames) : this(
             metricIntervalSeconds, customProviderNames?.Any() == true ? CreateProviders(metricIntervalSeconds, customProviderNames) :
-            CreateProviders(metricIntervalSeconds, new[] { SystemRuntimeEventSourceName, MicrosoftAspNetCoreHostingEventSourceName, GrpcAspNetCoreServer }))
+            CreateProviders(metricIntervalSeconds, DefaultProviders))
         {
         }
 
