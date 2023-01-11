@@ -35,20 +35,20 @@ namespace Microsoft.Diagnostics.Tools.Counters
         private bool _pauseCmdSet;
         private readonly TaskCompletionSource<int> _shouldExit;
         private bool _resumeRuntime;
-        private DiagnosticsClient _diagnosticsClient;
-        private EventPipeSession _session;
         private readonly string _metricsEventSourceSessionId;
         private int _maxTimeSeries;
         private int _maxHistograms;
         private TimeSpan _duration;
+        private CounterMonitorSource _monitorSource;
 
         private class ProviderEventState
         {
             public DateTime FirstReceiveTimestamp;
             public bool InstrumentEventObserved;
         }
-        private readonly Dictionary<string, ProviderEventState> _providerEventStates = new();
-        private readonly Queue<CounterPayload> _bufferedEvents = new();
+        private readonly Dictionary<string, ProviderEventState> _providerEventStates = new Dictionary<string, ProviderEventState>();
+        private readonly Queue<CounterPayload> _bufferedEvents = new Queue<CounterPayload>();
+        private Func<Action<EventProxy>, Task<int>> _startTask;
 
         public CounterMonitor()
         {
@@ -57,7 +57,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
             _shouldExit = new TaskCompletionSource<int>();
         }
 
-        private void DynamicAllMonitor(TraceEvent obj)
+        private void DynamicAllMonitor(EventProxy obj)
         {
             if (_shouldExit.Task.IsCompleted)
             {
@@ -133,7 +133,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
             }
         }
 
-        private void HandleBeginInstrumentReporting(TraceEvent obj)
+        private void HandleBeginInstrumentReporting(EventProxy obj)
         {
             string sessionId = (string)obj.PayloadValue(0);
             string meterName = (string)obj.PayloadValue(1);
@@ -145,7 +145,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
             MeterInstrumentEventObserved(meterName, obj.TimeStamp);
         }
 
-        private void HandleCounterRate(TraceEvent obj)
+        private void HandleCounterRate(EventProxy obj)
         {
             string sessionId = (string)obj.PayloadValue(0);
             string meterName = (string)obj.PayloadValue(1);
@@ -169,7 +169,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
 
         }
 
-        private void HandleGauge(TraceEvent obj)
+        private void HandleGauge(EventProxy obj)
         {
             string sessionId = (string)obj.PayloadValue(0);
             string meterName = (string)obj.PayloadValue(1);
@@ -198,7 +198,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
             }
         }
 
-        private void HandleHistogram(TraceEvent obj)
+        private void HandleHistogram(EventProxy obj)
         {
             string sessionId = (string)obj.PayloadValue(0);
             string meterName = (string)obj.PayloadValue(1);
@@ -220,7 +220,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
             }
         }
 
-        private void HandleHistogramLimitReached(TraceEvent obj)
+        private void HandleHistogramLimitReached(EventProxy obj)
         {
             string sessionId = (string)obj.PayloadValue(0);
             if (sessionId != _metricsEventSourceSessionId)
@@ -233,7 +233,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                 );
         }
 
-        private void HandleTimeSeriesLimitReached(TraceEvent obj)
+        private void HandleTimeSeriesLimitReached(EventProxy obj)
         {
             string sessionId = (string)obj.PayloadValue(0);
             if (sessionId != _metricsEventSourceSessionId)
@@ -246,7 +246,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                 );
         }
 
-        private void HandleError(TraceEvent obj)
+        private void HandleError(EventProxy obj)
         {
             string sessionId = (string)obj.PayloadValue(0);
             string error = (string)obj.PayloadValue(1);
@@ -261,7 +261,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
             _shouldExit.TrySetResult((int)ReturnCode.TracingError);
         }
 
-        private void HandleObservableInstrumentCallbackError(TraceEvent obj)
+        private void HandleObservableInstrumentCallbackError(EventProxy obj)
         {
             string sessionId = (string)obj.PayloadValue(0);
             string error = (string)obj.PayloadValue(1);
@@ -275,7 +275,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                 );
         }
 
-        private void HandleMultipleSessionsNotSupportedError(TraceEvent obj)
+        private void HandleMultipleSessionsNotSupportedError(EventProxy obj)
         {
             string runningSessionId = (string)obj.PayloadValue(0);
             if (runningSessionId == _metricsEventSourceSessionId)
@@ -316,7 +316,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
 
         private static string AppendQuantile(string tags, string quantile) => string.IsNullOrEmpty(tags) ? quantile : $"{tags},{quantile}";
 
-        private void HandleDiagnosticCounter(TraceEvent obj)
+        private void HandleDiagnosticCounter(EventProxy obj)
         {
             IDictionary<string, object> payloadVal = (IDictionary<string, object>)(obj.PayloadValue(0));
             IDictionary<string, object> payloadFields = (IDictionary<string, object>)(payloadVal["Payload"]);
@@ -425,7 +425,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
         {
             try
             {
-                _session?.Stop();
+                _monitorSource.Stop();
             }
             catch (EndOfStreamException ex)
             {
@@ -499,7 +499,6 @@ namespace Microsoft.Diagnostics.Tools.Counters
                         _maxHistograms = maxHistograms;
                         _maxTimeSeries = maxTimeSeries;
                         _renderer = new ConsoleWriter(useAnsi);
-                        _diagnosticsClient = holder.Client;
                         _resumeRuntime = resumeRuntime;
                         _duration = duration;
                         int ret = await Start().ConfigureAwait(false);
@@ -510,7 +509,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                     {
                         try
                         {
-                            _session.Stop();
+                            _monitorSource.Stop();
                         }
                         catch (Exception) { } // Swallow all exceptions for now.
 
@@ -614,7 +613,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                     {
                         try
                         {
-                            _session.Stop();
+                            _monitorSource.Stop();
                         }
                         catch (Exception) { } // session.Stop() can throw if target application already stopped before we send the stop command.
                         return (int)ReturnCode.Ok;
@@ -823,22 +822,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
             Task monitorTask = new(() => {
                 try
                 {
-                    _session = _diagnosticsClient.StartEventPipeSession(providers, false, 10);
-                    if (_resumeRuntime)
-                    {
-                        try
-                        {
-                            _diagnosticsClient.ResumeRuntime();
-                        }
-                        catch (UnsupportedCommandException)
-                        {
-                            // Noop if the command is unknown since the target process is most likely a 3.1 app.
-                        }
-                    }
-                    EventPipeEventSource source = new(_session.EventStream);
-                    source.Dynamic.All += DynamicAllMonitor;
-                    _renderer.EventPipeSourceConnected();
-                    source.Process();
+                    _monitorSource.Start(providers);
                 }
                 catch (DiagnosticsClientException ex)
                 {
