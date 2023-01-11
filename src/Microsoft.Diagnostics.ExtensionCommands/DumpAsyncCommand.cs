@@ -464,6 +464,7 @@ namespace Microsoft.Diagnostics.ExtensionCommands
                     string depthTab = new string(' ', depth * TabWidth);
 
                     WriteHeaderLine($"{depthTab}{"Address",16} {"MT",16} {"Type",-32} {"Value",16} Name");
+#pragma warning disable CS8602 // Dereference of a possibly null reference.
                     foreach (ClrInstanceField field in obj.Type.Fields)
                     {
                         if (field.Type is not null)
@@ -483,6 +484,7 @@ namespace Microsoft.Diagnostics.ExtensionCommands
                             WriteLine($" {Truncate(field.Type.Name, 32),-32} {Truncate(GetDisplay(obj, field).ToString(), 16),16} {field.Name}");
                         }
                     }
+#pragma warning restore CS8602 // Dereference of a possibly null reference.
                 }
             }
 
@@ -490,12 +492,18 @@ namespace Microsoft.Diagnostics.ExtensionCommands
             string Describe(ClrObject obj)
             {
                 // Default the description to the type name.
+#pragma warning disable CS8600 // Converting null literal or possible null value to non-nullable type.
+#pragma warning disable CS8602 // Dereference of a possibly null reference.
                 string description = obj.Type.Name;
+#pragma warning restore CS8602 // Dereference of a possibly null reference.
+#pragma warning restore CS8600 // Converting null literal or possible null value to non-nullable type.
 
                 if (IsStateMachineBox(obj.Type))
                 {
                     // Remove the boilerplate box type from the name.
+#pragma warning disable CS8602 // Dereference of a possibly null reference.
                     int pos = description.IndexOf("StateMachineBox<", StringComparison.Ordinal);
+#pragma warning restore CS8602 // Dereference of a possibly null reference.
                     if (pos >= 0)
                     {
                         ReadOnlySpan<char> slice = description.AsSpan(pos + "StateMachineBox<".Length);
@@ -516,7 +524,9 @@ namespace Microsoft.Diagnostics.ExtensionCommands
                     description = "TaskCompletionSentinel";
                 }
 
+#pragma warning disable CS8603 // Possible null reference return.
                 return description;
+#pragma warning restore CS8603 // Possible null reference return.
             }
 
             // <summary>Determines whether the specified object is of interest to the user based on their criteria provided as command arguments.</summary>
@@ -527,15 +537,19 @@ namespace Microsoft.Diagnostics.ExtensionCommands
                     return false;
                 }
 
+#pragma warning disable CS8602 // Dereference of a possibly null reference.
                 if (MethodTableAddress is ulong mt && obj.Type.MethodTable != mt)
                 {
                     return false;
                 }
+#pragma warning restore CS8602 // Dereference of a possibly null reference.
 
+#pragma warning disable CS8602 // Dereference of a possibly null reference.
                 if (NameSubstring is not null && !obj.Type.Name.Contains(NameSubstring))
                 {
                     return false;
                 }
+#pragma warning restore CS8602 // Dereference of a possibly null reference.
 
                 return true;
             }
@@ -655,6 +669,7 @@ namespace Microsoft.Diagnostics.ExtensionCommands
             // </remarks>
             void AddContinuation(ClrObject continuation, List<ClrObject> continuations)
             {
+#pragma warning disable CS8602 // Dereference of a possibly null reference.
                 if (continuation.Type.Name.StartsWith("System.Collections.Generic.List<", StringComparison.Ordinal))
                 {
                     if (continuation.Type.GetFieldByName("_items") is ClrInstanceField itemsField)
@@ -680,17 +695,20 @@ namespace Microsoft.Diagnostics.ExtensionCommands
                 {
                     continuations.Add(continuation);
                 }
+#pragma warning restore CS8602 // Dereference of a possibly null reference.
             }
 
             // <summary>Tries to get the object contents of a Task's continuations field</summary>
             bool TryGetContinuation(ClrObject obj, out ClrObject continuation)
             {
+#pragma warning disable CS8602 // Dereference of a possibly null reference.
                 if (obj.Type.GetFieldByName("m_continuationObject") is ClrInstanceField continuationObjectField &&
                     continuationObjectField.ReadObject(obj.Address, interior: false) is ClrObject { IsValid: true } continuationObject)
                 {
                     continuation = ResolveContinuation(continuationObject);
                     return true;
                 }
+#pragma warning restore CS8602 // Dereference of a possibly null reference.
 
                 continuation = default;
                 return false;
@@ -702,10 +720,12 @@ namespace Microsoft.Diagnostics.ExtensionCommands
                 ClrObject tmp;
 
                 // If the continuation is an async method box, there's nothing more to resolve.
+#pragma warning disable CS8604 // Possible null reference argument.
                 if (IsTask(continuation.Type) && IsStateMachineBox(continuation.Type))
                 {
                     return continuation;
                 }
+#pragma warning restore CS8604 // Possible null reference argument.
 
                 // If it's a standard task continuation, get its task field.
                 if (TryGetValidObjectField(continuation, "m_task", out tmp))
