@@ -44,6 +44,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
         private int _maxTimeSeries;
         private int _maxHistograms;
         private TimeSpan _duration;
+        private CounterMonitorSource _monitorSource;
 
         class ProviderEventState
         {
@@ -426,7 +427,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
         {
             try
             {
-                _session?.Stop();
+                _monitorSource.Stop();
             }
             catch (EndOfStreamException ex)
             {
@@ -500,7 +501,6 @@ namespace Microsoft.Diagnostics.Tools.Counters
                         _maxHistograms = maxHistograms;
                         _maxTimeSeries = maxTimeSeries;
                         _renderer = new ConsoleWriter(useAnsi);
-                        _diagnosticsClient = holder.Client;
                         _resumeRuntime = resumeRuntime;
                         _duration = duration;
                         int ret = await Start();
@@ -511,7 +511,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                     {
                         try
                         {
-                            _session.Stop();
+                            _monitorSource.Stop();
                         }
                         catch (Exception) { } // Swallow all exceptions for now.
 
@@ -615,7 +615,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                     {
                         try
                         {
-                            _session.Stop();
+                            _monitorSource.Stop();
                         }
                         catch (Exception) { } // session.Stop() can throw if target application already stopped before we send the stop command.
                         return ReturnCode.Ok;
@@ -824,22 +824,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
             Task monitorTask = new Task(() => {
                 try
                 {
-                    _session = _diagnosticsClient.StartEventPipeSession(providers, false, 10);
-                    if (_resumeRuntime)
-                    {
-                        try
-                        {
-                            _diagnosticsClient.ResumeRuntime();
-                        }
-                        catch (UnsupportedCommandException)
-                        {
-                            // Noop if the command is unknown since the target process is most likely a 3.1 app.
-                        }
-                    }
-                    var source = new EventPipeEventSource(_session.EventStream);
-                    source.Dynamic.All += (e) => DynamicAllMonitor(new TraceEventProxy(e));
-                    _renderer.EventPipeSourceConnected();
-                    source.Process();
+                    _monitorSource.Start(providers);
                 }
                 catch (DiagnosticsClientException ex)
                 {
