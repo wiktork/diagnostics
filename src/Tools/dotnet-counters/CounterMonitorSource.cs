@@ -1,14 +1,17 @@
-﻿using Microsoft.Diagnostics.NETCore.Client;
-using Microsoft.Diagnostics.Tools.Counters.Exporters;
-using Microsoft.Diagnostics.Tracing;
-using Microsoft.Diagnostics.Tracing.Parsers.MicrosoftAntimalwareAMFilter;
-using Microsoft.Internal.Common.Utils;
+﻿// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+
 using System;
 using System.Collections.Generic;
 using System.CommandLine.Parsing;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Diagnostics.NETCore.Client;
+using Microsoft.Diagnostics.Tools.Counters.Exporters;
+using Microsoft.Diagnostics.Tracing;
+using Microsoft.Diagnostics.Tracing.Parsers.MicrosoftAntimalwareAMFilter;
+using Microsoft.Internal.Common.Utils;
 
 namespace Microsoft.Diagnostics.Tools.Counters
 {
@@ -66,7 +69,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                         // Noop if the command is unknown since the target process is most likely a 3.1 app.
                     }
                 }
-                var source = new EventPipeEventSource(_session.EventStream);
+                EventPipeEventSource source = new EventPipeEventSource(_session.EventStream);
                 source.Dynamic.All += (e) => _callback(new TraceEventProxy(e));
                 _renderer.EventPipeSourceConnected();
                 source.Process();

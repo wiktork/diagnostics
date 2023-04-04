@@ -46,9 +46,9 @@ namespace Microsoft.Diagnostics.Tools.Counters
             public DateTime FirstReceiveTimestamp;
             public bool InstrumentEventObserved;
         }
-        private readonly Dictionary<string, ProviderEventState> _providerEventStates = new Dictionary<string, ProviderEventState>();
-        private readonly Queue<CounterPayload> _bufferedEvents = new Queue<CounterPayload>();
-        private Func<Action<EventProxy>, Task<int>> _startTask;
+        private readonly Dictionary<string, ProviderEventState> _providerEventStates = new();
+        private readonly Queue<CounterPayload> _bufferedEvents = new();
+        //private Func<Action<EventProxy>, Task<int>> _startTask;
 
         public CounterMonitor()
         {
@@ -501,6 +501,8 @@ namespace Microsoft.Diagnostics.Tools.Counters
                         _renderer = new ConsoleWriter(useAnsi);
                         _resumeRuntime = resumeRuntime;
                         _duration = duration;
+                        _monitorSource = new DiagnosticClientCounterMonitorSource(DynamicAllMonitor, _renderer, _processId, diagnosticPort, resumeRuntime, _ct);
+
                         int ret = await Start().ConfigureAwait(false);
                         ProcessLauncher.Launcher.Cleanup();
                         return ret;
@@ -574,7 +576,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                         _maxHistograms = maxHistograms;
                         _maxTimeSeries = maxTimeSeries;
                         _output = output;
-                        _diagnosticsClient = holder.Client;
+                        //_diagnosticsClient = holder.Client;
                         _duration = duration;
                         if (_output.Length == 0)
                         {
