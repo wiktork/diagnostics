@@ -39,6 +39,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
         private int _maxTimeSeries;
         private int _maxHistograms;
         private TimeSpan _duration;
+        private CounterMonitorSourceFactory _monitorSourceFactory;
         private CounterMonitorSource _monitorSource;
 
         private class ProviderEventState
@@ -50,11 +51,16 @@ namespace Microsoft.Diagnostics.Tools.Counters
         private readonly Queue<CounterPayload> _bufferedEvents = new();
         //private Func<Action<EventProxy>, Task<int>> _startTask;
 
-        public CounterMonitor()
+        public CounterMonitor() : this(new DiagnosticClientCounterMonitorSourceFactory())
+        {
+        }
+
+        internal CounterMonitor(CounterMonitorSourceFactory factory)
         {
             _pauseCmdSet = false;
             _metricsEventSourceSessionId = Guid.NewGuid().ToString();
             _shouldExit = new TaskCompletionSource<int>();
+            _monitorSourceFactory = factory;
         }
 
         private void DynamicAllMonitor(EventProxy obj)
@@ -501,7 +507,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                         _renderer = new ConsoleWriter(useAnsi);
                         _resumeRuntime = resumeRuntime;
                         _duration = duration;
-                        _monitorSource = new DiagnosticClientCounterMonitorSource(DynamicAllMonitor, _renderer, _processId, diagnosticPort, resumeRuntime, _ct);
+                        _monitorSource = _monitorSourceFactory.Create(DynamicAllMonitor, _renderer, _processId, diagnosticPort, resumeRuntime, _ct);
 
                         int ret = await Start().ConfigureAwait(false);
                         ProcessLauncher.Launcher.Cleanup();

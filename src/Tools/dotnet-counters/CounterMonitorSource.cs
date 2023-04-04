@@ -15,6 +15,11 @@ using Microsoft.Internal.Common.Utils;
 
 namespace Microsoft.Diagnostics.Tools.Counters
 {
+    internal abstract class CounterMonitorSourceFactory
+    {
+        public abstract CounterMonitorSource Create(Action<EventProxy> callback, ICounterRenderer renderer, int processId, string diagnosticPort, bool resumeRuntime, CancellationToken cancellationToken);
+    }
+
     internal abstract class CounterMonitorSource : IDisposable
     {
         public abstract Task<int> Start(EventPipeProvider[] providers);
@@ -28,6 +33,14 @@ namespace Microsoft.Diagnostics.Tools.Counters
         protected abstract void Dispose(bool disposing);
 
         public abstract void Stop();
+    }
+
+    internal sealed class DiagnosticClientCounterMonitorSourceFactory : CounterMonitorSourceFactory
+    {
+        public override CounterMonitorSource Create(Action<EventProxy> callback, ICounterRenderer renderer, int processId, string diagnosticPort, bool resumeRuntime, CancellationToken cancellationToken)
+        {
+            return new DiagnosticClientCounterMonitorSource(callback, renderer, processId, diagnosticPort, resumeRuntime, cancellationToken);
+        }
     }
 
     internal sealed class DiagnosticClientCounterMonitorSource : CounterMonitorSource
@@ -56,8 +69,8 @@ namespace Microsoft.Diagnostics.Tools.Counters
 
         public override async Task<int> Start(EventPipeProvider[] providers)
         {
-            DiagnosticsClientBuilder builder = new DiagnosticsClientBuilder("dotnet-counters", 10);
-            using (DiagnosticsClientHolder holder = await builder.Build(_token, _processId, _diagnosticPort, showChildIO: false, printLaunchCommand: false))
+            DiagnosticsClientBuilder builder = new("dotnet-counters", 10);
+            using (DiagnosticsClientHolder holder = await builder.Build(_token, _processId, _diagnosticPort, showChildIO: false, printLaunchCommand: false).ConfigureAwait(true))
             {
                 _diagnosticsClient = holder.Client;
                 _session = _diagnosticsClient.StartEventPipeSession(providers, false, 10);
@@ -69,7 +82,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                         // Noop if the command is unknown since the target process is most likely a 3.1 app.
                     }
                 }
-                EventPipeEventSource source = new EventPipeEventSource(_session.EventStream);
+                EventPipeEventSource source = new(_session.EventStream);
                 source.Dynamic.All += (e) => _callback(new TraceEventProxy(e));
                 _renderer.EventPipeSourceConnected();
                 source.Process();
