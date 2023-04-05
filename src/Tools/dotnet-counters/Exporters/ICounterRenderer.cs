@@ -13,4 +13,9 @@ namespace Microsoft.Diagnostics.Tools.Counters.Exporters
         void SetErrorText(string errorText);
         void Stop();
     }
+
+    public interface ICounterRendererFactory
+    {
+        ICounterRenderer Create();
+    }
 }

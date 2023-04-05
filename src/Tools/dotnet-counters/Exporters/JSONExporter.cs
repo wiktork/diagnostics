@@ -8,6 +8,13 @@ using System.Text;
 
 namespace Microsoft.Diagnostics.Tools.Counters.Exporters
 {
+    internal sealed class JSONExporterFactory : ICounterRendererFactory
+    {
+        public JSONExporterFactory() { }
+
+        public ICounterRenderer Create() => throw new NotImplementedException();
+    }
+
     internal class JSONExporter : ICounterRenderer
     {
         private readonly object _lock = new();

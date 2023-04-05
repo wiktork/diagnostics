@@ -8,6 +8,18 @@ using System.Text;
 
 namespace Microsoft.Diagnostics.Tools.Counters.Exporters
 {
+    internal sealed class CSVExporterFactory : ICounterRendererFactory
+    {
+        private string _output;
+
+        public CSVExporterFactory(string output) => _output = output;
+
+        public ICounterRenderer Create()
+        {
+            return new CSVExporter(_output);
+        }
+    }
+
     internal class CSVExporter : ICounterRenderer
     {
         private readonly object _lock = new(); // protects the StringBuilder instance.

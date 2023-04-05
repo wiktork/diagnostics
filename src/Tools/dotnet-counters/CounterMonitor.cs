@@ -582,7 +582,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                         _maxHistograms = maxHistograms;
                         _maxTimeSeries = maxTimeSeries;
                         _output = output;
-                        //_diagnosticsClient = holder.Client;
+                        _monitorSource = _monitorSourceFactory.Create(DynamicAllMonitor, _renderer, _processId, diagnosticPort, resumeRuntime, _ct);
                         _duration = duration;
                         if (_output.Length == 0)
                         {

@@ -8,6 +8,15 @@ using System.Linq;
 
 namespace Microsoft.Diagnostics.Tools.Counters.Exporters
 {
+    internal sealed class ConsoleWriterFactory : ICounterRendererFactory
+    {
+        private bool _useAnsi;
+
+        public ConsoleWriterFactory(bool useAnsi) => _useAnsi = useAnsi;
+
+        public ICounterRenderer Create() => new ConsoleWriter(_useAnsi);
+    }
+
     /// <summary>
     /// ConsoleWriter is an implementation of ICounterRenderer for rendering the counter values in real-time
     /// to the console. This is the renderer for the `dotnet-counters monitor` command.
