@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.IO.Pipes;
 using System.Linq;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,6 +30,8 @@ namespace EventPipeTracee
             bool spinWait10 = args.Length > 2 && "SpinWait10".Equals(args[2], StringComparison.Ordinal);
             string loggerCategory = args[1];
 
+            bool diagMetrics = args.Any("DiagMetrics".Equals);
+
             Console.WriteLine($"{pid} EventPipeTracee: start process");
             Console.Out.Flush();
 
@@ -53,6 +56,8 @@ namespace EventPipeTracee
 
             Console.WriteLine($"{pid} EventPipeTracee: {DateTime.UtcNow} Awaiting start");
             Console.Out.Flush();
+
+            using var metrics = diagMetrics ? CreateMetrics() : null;
 
             // Wait for server to send something
             int input = pipeStream.ReadByte();
@@ -89,6 +94,19 @@ namespace EventPipeTracee
 
             Console.WriteLine($"{pid} EventPipeTracee {DateTime.UtcNow} Ending remote test process '{input}'");
             return 0;
+        }
+
+        private static IDisposable CreateMetrics()
+        {
+            Meter meter = new Meter("TestMeter");
+            var counter = meter.CreateCounter<int>("TestCounter", "dollars");
+            counter.Add(1);
+            var histogram = meter.CreateHistogram<float>("TestHistogram", "feet");
+            histogram.Record(10.0f);
+            histogram.Record(15.0f);
+            histogram.Record(20.0f);
+            histogram.Record(25.0f);
+            return meter;
         }
 
         // TODO At some point we may want parameters to choose different test bodies.

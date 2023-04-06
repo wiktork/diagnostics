@@ -582,7 +582,6 @@ namespace Microsoft.Diagnostics.Tools.Counters
                         _maxHistograms = maxHistograms;
                         _maxTimeSeries = maxTimeSeries;
                         _output = output;
-                        _monitorSource = _monitorSourceFactory.Create(DynamicAllMonitor, _renderer, _processId, diagnosticPort, resumeRuntime, _ct);
                         _duration = duration;
                         if (_output.Length == 0)
                         {
@@ -614,6 +613,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                             return (int)ReturnCode.ArgumentError;
                         }
                         _resumeRuntime = resumeRuntime;
+                        _monitorSource = _monitorSourceFactory.Create(DynamicAllMonitor, _renderer, _processId, diagnosticPort, resumeRuntime, _ct);
                         int ret = await Start().ConfigureAwait(false);
                         return ret;
                     }
