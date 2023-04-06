@@ -31,7 +31,7 @@ namespace DotnetCounters.UnitTests
     public class CounterMonitorPayloadTests
     {
         private ITestOutputHelper _outputHelper;
-        //private static readonly TimeSpan DefaultTimeout = TimeSpan.FromMinutes(2);
+        private static readonly TimeSpan DefaultTimeout = TimeSpan.FromMinutes(2);
 
         public CounterMonitorPayloadTests(ITestOutputHelper outputHelper)
         {
@@ -41,18 +41,48 @@ namespace DotnetCounters.UnitTests
         [SkippableTheory, MemberData(nameof(Configurations))]
         public async Task TestCounterMonitor(TestConfiguration configuration)
         {
+            if (configuration.BuildProjectFramework != "net8.0")
+            {
+                throw new SkipTestException("Inapplicable framework");
+            }
+
             CounterMonitor monitor = new CounterMonitor();
             string path = Path.ChangeExtension(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString()), "json");
 
-            await using var testRunner = await TestRunnerUtilities.StartProcess(configuration, "TestCounterMonitor DiagMetrics", _outputHelper);
+            try
+            {
+                using CancellationTokenSource source = new CancellationTokenSource(DefaultTimeout);
 
-            await TestRunnerUtilities.ExecuteCollection((ct) => monitor.Collect(ct,
-                new List<string> { "System.Runtime" }, null, new TestConsole(), testRunner.Pid, 5, CountersExportFormat.json, path, null, null, true, 1, 1, TimeSpan.FromSeconds(10))
-                ,testRunner, CancellationToken.None);
+                await using var testRunner = await TestRunnerUtilities.StartProcess(configuration, "TestCounterMonitor DiagMetrics", _outputHelper);
 
-            
+                await TestRunnerUtilities.ExecuteCollection((ct) => {
+                    return Task.Run(async () =>
+                        await monitor.Collect(
+                            ct: ct,
+                            counter_list: new List<string> { "System.Runtime", "TestMeter" },
+                            counters: null,
+                            console: new TestConsole(),
+                            processId: testRunner.Pid,
+                            refreshInterval: 3,
+                            format: CountersExportFormat.json,
+                            output: path,
+                            name: null,
+                            diagnosticPort: null,
+                            resumeRuntime: false,
+                            maxHistograms: 1,
+                            maxTimeSeries: 1,
+                            duration: TimeSpan.FromSeconds(10)));
+                }, testRunner, source.Token);
+            }
+            finally
+            {
+                try
+                {
+                    //File.Delete(path);
+                }
+                catch { }
+            }
         }
-
 
         [Fact]
         public async Task TestBasicEvent()

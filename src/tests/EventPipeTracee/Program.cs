@@ -32,6 +32,8 @@ namespace EventPipeTracee
 
             bool diagMetrics = args.Any("DiagMetrics".Equals);
 
+            Console.WriteLine($"{pid} EventPipeTracee: DiagMetrics {diagMetrics}");
+
             Console.WriteLine($"{pid} EventPipeTracee: start process");
             Console.Out.Flush();
 
@@ -57,7 +59,7 @@ namespace EventPipeTracee
             Console.WriteLine($"{pid} EventPipeTracee: {DateTime.UtcNow} Awaiting start");
             Console.Out.Flush();
 
-            using var metrics = diagMetrics ? CreateMetrics() : null;
+            using CustomMetrics metrics = diagMetrics ? new CustomMetrics(): null;
 
             // Wait for server to send something
             int input = pipeStream.ReadByte();
@@ -66,6 +68,15 @@ namespace EventPipeTracee
             Console.Out.Flush();
 
             TestBodyCore(customCategoryLogger, appCategoryLogger);
+
+            if (diagMetrics)
+            {
+                metrics.IncrementCounter();
+                for (int i = 0; i < 100; i++)
+                {
+                    metrics.RecordHistogram((float)i);
+                }
+            }
 
             Console.WriteLine($"{pid} EventPipeTracee: signal end of test data");
             Console.Out.Flush();
@@ -96,18 +107,6 @@ namespace EventPipeTracee
             return 0;
         }
 
-        private static IDisposable CreateMetrics()
-        {
-            Meter meter = new Meter("TestMeter");
-            var counter = meter.CreateCounter<int>("TestCounter", "dollars");
-            counter.Add(1);
-            var histogram = meter.CreateHistogram<float>("TestHistogram", "feet");
-            histogram.Record(10.0f);
-            histogram.Record(15.0f);
-            histogram.Record(20.0f);
-            histogram.Record(25.0f);
-            return meter;
-        }
 
         // TODO At some point we may want parameters to choose different test bodies.
         private static void TestBodyCore(ILogger customCategoryLogger, ILogger appCategoryLogger)
