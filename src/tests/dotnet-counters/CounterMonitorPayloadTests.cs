@@ -53,24 +53,24 @@ namespace DotnetCounters.UnitTests
             {
                 using CancellationTokenSource source = new CancellationTokenSource(DefaultTimeout);
 
-                await using var testRunner = await TestRunnerUtilities.StartProcess(configuration, "TestCounterMonitor SpinWait10 DiagMetrics", _outputHelper);
+                await using var testRunner = await TestRunnerUtilities.StartProcess(configuration, "TestCounterMonitor DiagMetrics", _outputHelper);
 
                 await TestRunnerUtilities.ExecuteCollection((ct) => {
                     return Task.Run(async () =>
                         await monitor.Collect(
                             ct: ct,
-                            counter_list: new List<string> { "TestMeter" },
+                            counter_list: new List<string> { "System.Runtime", "TestMeter" },
                             counters: null,
                             console: new TestConsole(),
                             processId: testRunner.Pid,
-                            refreshInterval: 3,
+                            refreshInterval: 1,
                             format: CountersExportFormat.json,
                             output: path,
                             name: null,
                             diagnosticPort: null,
                             resumeRuntime: false,
-                            maxHistograms: 1,
-                            maxTimeSeries: 1,
+                            maxHistograms: 10,
+                            maxTimeSeries: 10,
                             duration: TimeSpan.FromSeconds(10)));
                 }, testRunner, source.Token);
             }

@@ -29,6 +29,8 @@ namespace CommonTestRunner
             CancellationToken token,
             TaskCompletionSource waitTaskSource = null)
         {
+            //using CancellationTokenSource linkedSource = CancellationTokenSource.CreateLinkedTokenSource(token);
+
             Task collectionTask = executeCollection(token);
 
             // Begin event production

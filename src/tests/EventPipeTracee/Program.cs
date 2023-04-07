@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.IO.Pipes;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -69,11 +70,12 @@ namespace EventPipeTracee
 
             if (diagMetrics)
             {
-                metrics.IncrementCounter();
-                for (int i = 0; i < 1000; i++)
-                {
+                _ = Task.Run(async () => {
+                    metrics.IncrementCounter();
                     metrics.RecordHistogram((float)i);
-                }
+                    await Task.Delay(10).ConfigureAwait(true);
+                }).ConfigureAwait(true);
+
             }
 
             TestBodyCore(customCategoryLogger, appCategoryLogger);
