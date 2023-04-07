@@ -21,6 +21,9 @@ namespace EventPipeTracee
             _meter = new("TestMeter");
             _counter = _meter.CreateCounter<int>("TestCounter", "dollars");
             _histogram = _meter.CreateHistogram<float>("TestHistogram", "feet");
+
+            IncrementCounter();
+            RecordHistogram();
         }
 
         public void IncrementCounter(int v = 1)

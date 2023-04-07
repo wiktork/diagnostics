@@ -67,16 +67,16 @@ namespace EventPipeTracee
             Console.WriteLine($"{pid} {DateTime.UtcNow} Starting test body '{input}'");
             Console.Out.Flush();
 
-            TestBodyCore(customCategoryLogger, appCategoryLogger);
-
             if (diagMetrics)
             {
                 metrics.IncrementCounter();
-                for (int i = 0; i < 100; i++)
+                for (int i = 0; i < 1000; i++)
                 {
                     metrics.RecordHistogram((float)i);
                 }
             }
+
+            TestBodyCore(customCategoryLogger, appCategoryLogger);
 
             Console.WriteLine($"{pid} EventPipeTracee: signal end of test data");
             Console.Out.Flush();
