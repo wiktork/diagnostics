@@ -35,12 +35,12 @@ namespace Microsoft.Diagnostics.Tools.Counters
         private bool _pauseCmdSet;
         private readonly TaskCompletionSource<int> _shouldExit;
         private bool _resumeRuntime;
-        private DiagnosticsClient _diagnosticsClient;
-        private EventPipeSession _session;
         private readonly string _metricsEventSourceSessionId;
         private int _maxTimeSeries;
         private int _maxHistograms;
         private TimeSpan _duration;
+        private CounterMonitorSourceFactory _monitorSourceFactory;
+        private CounterMonitorSource _monitorSource;
 
         private class ProviderEventState
         {
@@ -49,12 +49,18 @@ namespace Microsoft.Diagnostics.Tools.Counters
         }
         private readonly Dictionary<string, ProviderEventState> _providerEventStates = new();
         private readonly Queue<CounterPayload> _bufferedEvents = new();
+        //private Func<Action<TraceEvent>, Task<int>> _startTask;
 
-        public CounterMonitor()
+        public CounterMonitor() : this(new DiagnosticClientCounterMonitorSourceFactory())
+        {
+        }
+
+        internal CounterMonitor(CounterMonitorSourceFactory factory)
         {
             _pauseCmdSet = false;
             _metricsEventSourceSessionId = Guid.NewGuid().ToString();
             _shouldExit = new TaskCompletionSource<int>();
+            _monitorSourceFactory = factory;
         }
 
         private void DynamicAllMonitor(TraceEvent obj)
@@ -465,7 +471,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
         {
             try
             {
-                _session?.Stop();
+                _monitorSource.Stop();
             }
             catch (EndOfStreamException ex)
             {
@@ -539,9 +545,10 @@ namespace Microsoft.Diagnostics.Tools.Counters
                         _maxHistograms = maxHistograms;
                         _maxTimeSeries = maxTimeSeries;
                         _renderer = new ConsoleWriter(useAnsi);
-                        _diagnosticsClient = holder.Client;
                         _resumeRuntime = resumeRuntime;
                         _duration = duration;
+                        _monitorSource = _monitorSourceFactory.Create(DynamicAllMonitor, _renderer, _processId, diagnosticPort, resumeRuntime, _ct);
+
                         int ret = await Start().ConfigureAwait(false);
                         ProcessLauncher.Launcher.Cleanup();
                         return ret;
@@ -550,7 +557,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                     {
                         try
                         {
-                            _session.Stop();
+                            _monitorSource.Stop();
                         }
                         catch (Exception) { } // Swallow all exceptions for now.
 
@@ -615,7 +622,6 @@ namespace Microsoft.Diagnostics.Tools.Counters
                         _maxHistograms = maxHistograms;
                         _maxTimeSeries = maxTimeSeries;
                         _output = output;
-                        _diagnosticsClient = holder.Client;
                         _duration = duration;
                         if (_output.Length == 0)
                         {
@@ -647,6 +653,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                             return (int)ReturnCode.ArgumentError;
                         }
                         _resumeRuntime = resumeRuntime;
+                        _monitorSource = _monitorSourceFactory.Create(DynamicAllMonitor, _renderer, _processId, diagnosticPort, resumeRuntime, _ct);
                         int ret = await Start().ConfigureAwait(false);
                         return ret;
                     }
@@ -654,7 +661,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
                     {
                         try
                         {
-                            _session.Stop();
+                            _monitorSource.Stop();
                         }
                         catch (Exception) { } // session.Stop() can throw if target application already stopped before we send the stop command.
                         return (int)ReturnCode.Ok;
@@ -863,22 +870,7 @@ namespace Microsoft.Diagnostics.Tools.Counters
             Task monitorTask = new(() => {
                 try
                 {
-                    _session = _diagnosticsClient.StartEventPipeSession(providers, false, 10);
-                    if (_resumeRuntime)
-                    {
-                        try
-                        {
-                            _diagnosticsClient.ResumeRuntime();
-                        }
-                        catch (UnsupportedCommandException)
-                        {
-                            // Noop if the command is unknown since the target process is most likely a 3.1 app.
-                        }
-                    }
-                    EventPipeEventSource source = new(_session.EventStream);
-                    source.Dynamic.All += DynamicAllMonitor;
-                    _renderer.EventPipeSourceConnected();
-                    source.Process();
+                    _monitorSource.Start(providers);
                 }
                 catch (DiagnosticsClientException ex)
                 {
