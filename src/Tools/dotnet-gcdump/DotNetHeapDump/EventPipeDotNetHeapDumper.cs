@@ -330,7 +330,7 @@ namespace Microsoft.Diagnostics.Tools.GCDump
             {
                 try
                 {
-                    string defaultAddress = PidIpcEndpoint.GetDefaultAddress(pid);
+                    string defaultAddress = PidIpcEndpoint.GetDefaultAddress(pid, null);
                     if (!string.IsNullOrEmpty(defaultAddress) && PidIpcEndpoint.IsDefaultAddressDSRouter(pid, defaultAddress))
                     {
                         diagnosticPort = defaultAddress + ",connect";

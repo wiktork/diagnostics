@@ -8,9 +8,14 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices.ComTypes;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using static System.Net.WebRequestMethods;
 
 namespace Microsoft.Diagnostics.NETCore.Client
 {
@@ -23,6 +28,11 @@ namespace Microsoft.Diagnostics.NETCore.Client
 
         public DiagnosticsClient(int processId) :
             this(new PidIpcEndpoint(processId))
+        {
+        }
+
+        internal DiagnosticsClient(int processId, int? hostProcessId) :
+            this(new PidIpcEndpoint(processId, hostProcessId))
         {
         }
 
@@ -345,6 +355,54 @@ namespace Microsoft.Diagnostics.NETCore.Client
             IpcMessage request = CreateDisablePerfMapMessage();
             IpcMessage response = await IpcClient.SendMessageAsync(_endpoint, request, token).ConfigureAwait(false);
             ValidateResponseMessage(response, nameof(DisablePerfMapAsync));
+        }
+
+        internal static IEnumerable<(int Pid, int HostPid)> GetAllPublishedProcesses(string procfsRoot, ILogger logger)
+        {
+            string[] folders = Directory.GetDirectories(procfsRoot);
+            logger.LogWarning($"folders: {folders.Length}");
+            foreach (string folder in folders)
+            {
+                if (int.TryParse(Path.GetFileName(folder), NumberStyles.Integer, CultureInfo.InvariantCulture, out int hostPid))
+                {
+                    logger.LogWarning($"hostPid: {hostPid}");
+
+                    string[] files = Array.Empty<string>();
+
+                    try
+                    {
+
+                        files = Directory.GetFiles(Path.Combine(folder, "root", "tmp"), "dotnet-diagnostic*socket");
+                    }
+                    catch (Exception e)
+                    {
+                        logger.LogError(e, null);
+                    }
+
+                    logger.LogWarning($"files: {files.Length}");
+
+                    foreach (int? pid in files.Select(f => ExtractPid(f)).Where(p => p != null).Distinct())
+                    {
+                        yield return (pid.Value, hostPid);
+                    }
+                }
+            }
+        }
+
+        private static int? ExtractPid(string port)
+        {
+            Match match = Regex.Match(Path.GetFileName(port), PidIpcEndpoint.DiagnosticsPortPattern);
+            if (!match.Success)
+            {
+                return null;
+            }
+
+            string group = match.Groups[1].Value;
+            if (!int.TryParse(group, NumberStyles.Integer, CultureInfo.InvariantCulture, out int processId))
+            {
+                return null;
+            }
+            return processId;
         }
 
         /// <summary>

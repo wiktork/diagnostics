@@ -223,6 +223,7 @@ namespace Microsoft.Diagnostics.NETCore.Client
         public static string DiagnosticsPortPattern { get; } = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? @"^dotnet-diagnostic-(\d+)$" : @"^dotnet-diagnostic-(\d+)-(\d+)-socket$";
 
         private int _pid;
+        private int? _hostPid;
         private IpcEndpointConfig _config;
 
         /// <summary>
@@ -231,21 +232,26 @@ namespace Microsoft.Diagnostics.NETCore.Client
         /// </summary>
         /// <param name="pid">The pid of the target process</param>
         /// <returns>A reference to the IPC Transport</returns>
-        public PidIpcEndpoint(int pid)
+        public PidIpcEndpoint(int pid) : this(pid, null)
+        {
+        }
+
+        public PidIpcEndpoint(int pid, int? hostPid)
         {
             _pid = pid;
+            _hostPid = hostPid;
         }
 
         public override Stream Connect(TimeSpan timeout)
         {
-            string address = GetDefaultAddress();
+            string address = GetDefaultAddress(_pid, _hostPid);
             _config = IpcEndpointConfig.Parse(address + ",connect");
             return IpcEndpointHelper.Connect(_config, timeout);
         }
 
         public override async Task<Stream> ConnectAsync(CancellationToken token)
         {
-            string address = GetDefaultAddress();
+            string address = GetDefaultAddress(_pid, _hostPid);
             _config = IpcEndpointConfig.Parse(address + ",connect");
             return await IpcEndpointHelper.ConnectAsync(_config, token).ConfigureAwait(false);
         }
@@ -260,12 +266,7 @@ namespace Microsoft.Diagnostics.NETCore.Client
             using Stream _ = await ConnectAsync(token).ConfigureAwait(false);
         }
 
-        private string GetDefaultAddress()
-        {
-            return GetDefaultAddress(_pid);
-        }
-
-        private static bool TryGetDefaultAddress(int pid, out string defaultAddress)
+        private static bool TryGetDefaultAddress(int pid, int? hostPid, out string defaultAddress)
         {
             defaultAddress = null;
 
@@ -287,22 +288,31 @@ namespace Microsoft.Diagnostics.NETCore.Client
             {
                 try
                 {
-                    defaultAddress = Directory.GetFiles(IpcRootPath, $"dotnet-diagnostic-{pid}-*-socket") // Try best match.
-                        .OrderByDescending(f => new FileInfo(f).LastWriteTime)
-                        .FirstOrDefault();
-
-                    string dsrouterAddress = Directory.GetFiles(IpcRootPath, $"dotnet-diagnostic-dsrouter-{pid}-*-socket") // Try best match.
-                        .OrderByDescending(f => new FileInfo(f).LastWriteTime)
-                        .FirstOrDefault();
-
-                    if (!string.IsNullOrEmpty(dsrouterAddress) && !string.IsNullOrEmpty(defaultAddress))
+                    string rootPath = IpcRootPath;
+                    if (hostPid.HasValue)
                     {
-                        FileInfo defaultFile = new(defaultAddress);
-                        FileInfo dsrouterFile = new(dsrouterAddress);
+                        rootPath = FormattableString.Invariant($"/host/proc/{hostPid.Value}/root{IpcRootPath}");
+                    }
 
-                        if (dsrouterFile.LastWriteTime >= defaultFile.LastWriteTime)
+                    defaultAddress = Directory.GetFiles(rootPath, FormattableString.Invariant($"dotnet-diagnostic-{pid}-*-socket")) // Try best match.
+                        .OrderByDescending(f => new FileInfo(f).LastWriteTime)
+                        .FirstOrDefault();
+
+                    if (!hostPid.HasValue)
+                    {
+                        string dsrouterAddress = Directory.GetFiles(IpcRootPath, FormattableString.Invariant($"dotnet-diagnostic-dsrouter-{pid}-*-socket")) // Try best match.
+                            .OrderByDescending(f => new FileInfo(f).LastWriteTime)
+                            .FirstOrDefault();
+
+                        if (!string.IsNullOrEmpty(dsrouterAddress) && !string.IsNullOrEmpty(defaultAddress))
                         {
-                            defaultAddress = dsrouterAddress;
+                            FileInfo defaultFile = new(defaultAddress);
+                            FileInfo dsrouterFile = new(dsrouterAddress);
+
+                            if (dsrouterFile.LastWriteTime >= defaultFile.LastWriteTime)
+                            {
+                                defaultAddress = dsrouterAddress;
+                            }
                         }
                     }
                 }
@@ -312,22 +322,25 @@ namespace Microsoft.Diagnostics.NETCore.Client
             return !string.IsNullOrEmpty(defaultAddress);
         }
 
-        public static string GetDefaultAddress(int pid)
+        public static string GetDefaultAddress(int pid, int? hostPid)
         {
-            try
+            if (!hostPid.HasValue)
             {
-                Process process = Process.GetProcessById(pid);
-            }
-            catch (ArgumentException)
-            {
-                throw new ServerNotAvailableException($"Process {pid} is not running.");
-            }
-            catch (InvalidOperationException)
-            {
-                throw new ServerNotAvailableException($"Process {pid} seems to be elevated.");
+                try
+                {
+                    Process process = Process.GetProcessById(pid);
+                }
+                catch (ArgumentException)
+                {
+                    throw new ServerNotAvailableException($"Process {pid} is not running.");
+                }
+                catch (InvalidOperationException)
+                {
+                    throw new ServerNotAvailableException($"Process {pid} seems to be elevated.");
+                }
             }
 
-            if (!TryGetDefaultAddress(pid, out string defaultAddress))
+            if (!TryGetDefaultAddress(pid, hostPid, out string defaultAddress))
             {
                 throw new ServerNotAvailableException($"Process {pid} not running compatible .NET runtime.");
             }
