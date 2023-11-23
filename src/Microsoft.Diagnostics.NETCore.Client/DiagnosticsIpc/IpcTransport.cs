@@ -224,6 +224,7 @@ namespace Microsoft.Diagnostics.NETCore.Client
 
         private int _pid;
         private int? _hostPid;
+        private string _procfsPrefix;
         private IpcEndpointConfig _config;
 
         /// <summary>
@@ -232,26 +233,29 @@ namespace Microsoft.Diagnostics.NETCore.Client
         /// </summary>
         /// <param name="pid">The pid of the target process</param>
         /// <returns>A reference to the IPC Transport</returns>
-        public PidIpcEndpoint(int pid) : this(pid, null)
+        public PidIpcEndpoint(int pid) : this(pid, null, null)
         {
         }
 
-        public PidIpcEndpoint(int pid, int? hostPid)
+        public PidIpcEndpoint(int pid, int? hostPid, string procfsPrefix)
         {
             _pid = pid;
             _hostPid = hostPid;
+            _procfsPrefix = procfsPrefix;
         }
+
+        public int? HostPid => _hostPid;
 
         public override Stream Connect(TimeSpan timeout)
         {
-            string address = GetDefaultAddress(_pid, _hostPid);
+            string address = GetDefaultAddress(_pid, _hostPid, _procfsPrefix);
             _config = IpcEndpointConfig.Parse(address + ",connect");
             return IpcEndpointHelper.Connect(_config, timeout);
         }
 
         public override async Task<Stream> ConnectAsync(CancellationToken token)
         {
-            string address = GetDefaultAddress(_pid, _hostPid);
+            string address = GetDefaultAddress(_pid, _hostPid, _procfsPrefix);
             _config = IpcEndpointConfig.Parse(address + ",connect");
             return await IpcEndpointHelper.ConnectAsync(_config, token).ConfigureAwait(false);
         }
@@ -266,7 +270,7 @@ namespace Microsoft.Diagnostics.NETCore.Client
             using Stream _ = await ConnectAsync(token).ConfigureAwait(false);
         }
 
-        private static bool TryGetDefaultAddress(int pid, int? hostPid, out string defaultAddress)
+        private static bool TryGetDefaultAddress(int pid, int? hostPid, string procfsPrefix, out string defaultAddress)
         {
             defaultAddress = null;
 
@@ -289,9 +293,9 @@ namespace Microsoft.Diagnostics.NETCore.Client
                 try
                 {
                     string rootPath = IpcRootPath;
-                    if (hostPid.HasValue)
+                    if ((hostPid.HasValue) && (procfsPrefix != null))
                     {
-                        rootPath = FormattableString.Invariant($"/host/proc/{hostPid.Value}/root{IpcRootPath}");
+                        rootPath = FormattableString.Invariant($"{Path.Combine(procfsPrefix, hostPid.Value.ToString(), "root", "tmp")}");
                     }
 
                     defaultAddress = Directory.GetFiles(rootPath, FormattableString.Invariant($"dotnet-diagnostic-{pid}-*-socket")) // Try best match.
@@ -322,7 +326,7 @@ namespace Microsoft.Diagnostics.NETCore.Client
             return !string.IsNullOrEmpty(defaultAddress);
         }
 
-        public static string GetDefaultAddress(int pid, int? hostPid)
+        public static string GetDefaultAddress(int pid, int? hostPid, string procfsPrefix)
         {
             if (!hostPid.HasValue)
             {
@@ -340,7 +344,7 @@ namespace Microsoft.Diagnostics.NETCore.Client
                 }
             }
 
-            if (!TryGetDefaultAddress(pid, hostPid, out string defaultAddress))
+            if (!TryGetDefaultAddress(pid, hostPid, procfsPrefix, out string defaultAddress))
             {
                 throw new ServerNotAvailableException($"Process {pid} not running compatible .NET runtime.");
             }
@@ -366,12 +370,12 @@ namespace Microsoft.Diagnostics.NETCore.Client
 
         public bool Equals(PidIpcEndpoint other)
         {
-            return other != null && other._pid == _pid;
+            return other != null && other._pid == _pid && other._hostPid == _hostPid && string.Equals(other._procfsPrefix, _procfsPrefix, StringComparison.Ordinal);
         }
 
         public override int GetHashCode()
         {
-            return _pid.GetHashCode();
+            return _pid.GetHashCode() ^ _hostPid ?? 0 ^ _procfsPrefix?.GetHashCode() ?? 0;
         }
     }
 }

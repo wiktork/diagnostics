@@ -31,8 +31,8 @@ namespace Microsoft.Diagnostics.NETCore.Client
         {
         }
 
-        internal DiagnosticsClient(int processId, int? hostProcessId) :
-            this(new PidIpcEndpoint(processId, hostProcessId))
+        internal DiagnosticsClient(int processId, int? hostProcessId, string procfsPrefix) :
+            this(new PidIpcEndpoint(processId, hostProcessId, procfsPrefix))
         {
         }
 
@@ -357,29 +357,23 @@ namespace Microsoft.Diagnostics.NETCore.Client
             ValidateResponseMessage(response, nameof(DisablePerfMapAsync));
         }
 
-        internal static IEnumerable<(int Pid, int HostPid)> GetAllPublishedProcesses(string procfsRoot, ILogger logger)
+        internal static IEnumerable<(int Pid, int HostPid)> GetAllPublishedProcesses(string procfsRoot)
         {
             string[] folders = Directory.GetDirectories(procfsRoot);
-            logger.LogWarning($"folders: {folders.Length}");
             foreach (string folder in folders)
             {
                 if (int.TryParse(Path.GetFileName(folder), NumberStyles.Integer, CultureInfo.InvariantCulture, out int hostPid))
                 {
-                    logger.LogWarning($"hostPid: {hostPid}");
-
                     string[] files = Array.Empty<string>();
 
                     try
                     {
-
                         files = Directory.GetFiles(Path.Combine(folder, "root", "tmp"), "dotnet-diagnostic*socket");
                     }
-                    catch (Exception e)
+                    catch
                     {
-                        logger.LogError(e, null);
                     }
 
-                    logger.LogWarning($"files: {files.Length}");
 
                     foreach (int? pid in files.Select(f => ExtractPid(f)).Where(p => p != null).Distinct())
                     {
